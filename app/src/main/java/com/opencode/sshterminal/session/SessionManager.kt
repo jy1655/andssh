@@ -1,12 +1,11 @@
 package com.opencode.sshterminal.session
 
 import android.util.Log
+import com.opencode.sshterminal.di.ApplicationScope
 import com.opencode.sshterminal.ssh.HostKeyChangedException
 import com.opencode.sshterminal.ssh.SshClient
 import com.opencode.sshterminal.ssh.SshSession
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,9 +19,9 @@ import javax.inject.Singleton
 
 @Singleton
 class SessionManager @Inject constructor(
-    private val sshClient: SshClient
+    private val sshClient: SshClient,
+    @ApplicationScope private val scope: CoroutineScope
 ) {
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private val _snapshot = MutableStateFlow(
         SessionSnapshot(

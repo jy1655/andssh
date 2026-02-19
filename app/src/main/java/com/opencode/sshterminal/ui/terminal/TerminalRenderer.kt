@@ -93,8 +93,12 @@ fun TerminalRenderer(
         }
     }
 
-    @Suppress("UNUSED_EXPRESSION")
-    renderVersion
+    // Auto-scroll: only snap to bottom when user is already at bottom
+    LaunchedEffect(renderVersion) {
+        if (scrollOffset == 0) {
+            scrollPixelAccumulator = 0f
+        }
+    }
 
     Canvas(
         modifier = modifier
@@ -110,7 +114,7 @@ fun TerminalRenderer(
                     if (rowDelta != 0) {
                         scrollPixelAccumulator -= rowDelta * charSize.height
                         val maxScroll = bridge.screen.activeTranscriptRows
-                        scrollOffset = (scrollOffset + rowDelta).coerceIn(0, maxScroll)
+                        scrollOffset = (scrollOffset - rowDelta).coerceIn(0, maxScroll)
                     }
                 }
             }
@@ -122,21 +126,23 @@ fun TerminalRenderer(
     ) {
         drawRect(DEFAULT_BG, Offset.Zero, size)
 
-        val screen = bridge.screen
-        val rows = bridge.termRows
-        val cols = bridge.termCols
-        val effectiveScroll = scrollOffset.coerceIn(0, screen.activeTranscriptRows)
+        bridge.withReadLock {
+            val screen = bridge.screen
+            val rows = bridge.termRows
+            val cols = bridge.termCols
+            val effectiveScroll = scrollOffset.coerceIn(0, screen.activeTranscriptRows)
 
-        for (screenRow in 0 until rows) {
-            val bufferRow = screenRow - effectiveScroll
-            drawTerminalRow(screen, bufferRow, screenRow, cols, charSize, textMeasurer)
-        }
+            for (screenRow in 0 until rows) {
+                val bufferRow = screenRow - effectiveScroll
+                drawTerminalRow(screen, bufferRow, screenRow, cols, charSize, textMeasurer)
+            }
 
-        val cursorScreenRow = bridge.cursorRow + effectiveScroll
-        if (cursorScreenRow in 0 until rows && bridge.emulator.shouldCursorBeVisible()) {
-            val cx = bridge.cursorCol * charSize.width
-            val cy = cursorScreenRow * charSize.height
-            drawRect(CURSOR_COLOR, Offset(cx, cy), Size(charSize.width, charSize.height), alpha = 0.5f)
+            val cursorScreenRow = bridge.cursorRow + effectiveScroll
+            if (cursorScreenRow in 0 until rows && bridge.emulator.shouldCursorBeVisible()) {
+                val cx = bridge.cursorCol * charSize.width
+                val cy = cursorScreenRow * charSize.height
+                drawRect(CURSOR_COLOR, Offset(cx, cy), Size(charSize.width, charSize.height), alpha = 0.5f)
+            }
         }
     }
 }

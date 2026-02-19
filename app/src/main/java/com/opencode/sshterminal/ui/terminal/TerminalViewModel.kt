@@ -33,22 +33,12 @@ class TerminalViewModel @Inject constructor(
 
     val connectionId: String = savedStateHandle["connectionId"] ?: ""
 
-    val bridge = TermuxTerminalBridge(
-        cols = 120,
-        rows = 40,
-        onWriteToSsh = { bytes -> sessionManager.sendInput(bytes) }
-    )
+    val bridge: TermuxTerminalBridge = sessionManager.bridge
 
     val snapshot: StateFlow<SessionSnapshot> = sessionManager.snapshot
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), sessionManager.snapshot.value)
 
     init {
-        viewModelScope.launch {
-            sessionManager.outputBytes.collect { bytes ->
-                bridge.feed(bytes)
-            }
-        }
-
         viewModelScope.launch {
             sessionManager.snapshot
                 .distinctUntilChangedBy { it.state }
@@ -56,6 +46,8 @@ class TerminalViewModel @Inject constructor(
                     when (snap.state) {
                         SessionState.DISCONNECTED, SessionState.IDLE ->
                             context.stopService(Intent(context, SshForegroundService::class.java))
+                        SessionState.CONNECTED ->
+                            sessionManager.forceRepaint()
                         else -> { }
                     }
                 }
@@ -66,7 +58,6 @@ class TerminalViewModel @Inject constructor(
                 val profile = connectionRepository.get(connectionId) ?: return@launch
                 val shouldConnect = !sessionManager.isConnected || !isSameTarget(profile)
                 if (shouldConnect) {
-                    bridge.reset()
                     connectionRepository.touchLastUsed(profile.id)
                     context.startForegroundService(
                         Intent(context, SshForegroundService::class.java)
@@ -97,7 +88,6 @@ class TerminalViewModel @Inject constructor(
     }
 
     fun resize(cols: Int, rows: Int) {
-        bridge.resize(cols, rows)
         sessionManager.resize(cols, rows)
     }
 

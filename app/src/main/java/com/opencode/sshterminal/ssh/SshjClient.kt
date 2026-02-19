@@ -17,6 +17,8 @@ class SshjClient : SshClient {
     override suspend fun connect(request: ConnectRequest): SshSession = withContext(Dispatchers.IO) {
         val ssh = SSHClient()
         val verifierSetup = configureHostKeyVerifier(ssh, request)
+        ssh.connection.keepAlive.keepAliveInterval = 15
+
         try {
             ssh.connect(request.host, request.port)
             logKnownHostsDiffIfNeeded(request, verifierSetup)

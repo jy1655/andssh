@@ -8,6 +8,9 @@ import com.termux.terminal.TerminalSessionClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.concurrent.locks.ReentrantReadWriteLock
+import kotlin.concurrent.read
+import kotlin.concurrent.write
 
 class TermuxTerminalBridge(
     cols: Int = 120,
@@ -15,6 +18,8 @@ class TermuxTerminalBridge(
     transcriptRows: Int = 2000,
     private val onWriteToSsh: (ByteArray) -> Unit
 ) {
+    private val lock = ReentrantReadWriteLock()
+
     private val output = object : TerminalOutput() {
         override fun write(data: ByteArray, offset: Int, count: Int) {
             onWriteToSsh(data.copyOfRange(offset, offset + count))
@@ -52,20 +57,22 @@ class TermuxTerminalBridge(
     private val _renderVersion = MutableStateFlow(0L)
     val renderVersion: StateFlow<Long> = _renderVersion.asStateFlow()
 
-    fun feed(bytes: ByteArray) {
+    fun feed(bytes: ByteArray) = lock.write {
         emulator.append(bytes, bytes.size)
         _renderVersion.value++
     }
 
-    fun resize(cols: Int, rows: Int) {
+    fun resize(cols: Int, rows: Int) = lock.write {
         emulator.resize(cols, rows)
         _renderVersion.value++
     }
 
-    fun reset() {
+    fun reset() = lock.write {
         emulator.reset()
         _renderVersion.value++
     }
+
+    fun <T> withReadLock(block: TermuxTerminalBridge.() -> T): T = lock.read { block() }
 
     val screen: TerminalBuffer get() = emulator.screen
     val cursorRow: Int get() = emulator.cursorRow

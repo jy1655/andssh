@@ -5,13 +5,10 @@ import com.opencode.sshterminal.di.ApplicationScope
 import com.opencode.sshterminal.ssh.HostKeyChangedException
 import com.opencode.sshterminal.ssh.SshClient
 import com.opencode.sshterminal.ssh.SshSession
+import com.opencode.sshterminal.terminal.TermuxTerminalBridge
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -34,17 +31,28 @@ class SessionManager @Inject constructor(
     )
     val snapshot: StateFlow<SessionSnapshot> = _snapshot.asStateFlow()
 
-    private val _outputBytes = MutableSharedFlow<ByteArray>(
-        extraBufferCapacity = 256,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    val bridge: TermuxTerminalBridge = TermuxTerminalBridge(
+        cols = 120,
+        rows = 40,
+        onWriteToSsh = { bytes -> sendInput(bytes) }
     )
-    val outputBytes: SharedFlow<ByteArray> = _outputBytes.asSharedFlow()
+
+    private var lastCols: Int = 120
+    private var lastRows: Int = 40
 
     private var activeSession: SshSession? = null
     private var pendingHostKeyRequest: ConnectRequest? = null
 
     fun connect(request: ConnectRequest) {
         scope.launch {
+            val currentSnap = _snapshot.value
+            val sameTarget = currentSnap.host == request.host &&
+                currentSnap.port == request.port &&
+                currentSnap.username == request.username
+            if (!sameTarget) {
+                bridge.reset()
+            }
+
             _snapshot.value = SessionSnapshot(
                 sessionId = SessionId(),
                 state = SessionState.CONNECTING,
@@ -57,11 +65,16 @@ class SessionManager @Inject constructor(
                 runCatching { activeSession?.close() }
                 val session = sshClient.connect(request)
                 activeSession = session
+
+                bridge.resize(request.cols, request.rows)
+                lastCols = request.cols
+                lastRows = request.rows
+
                 session.openPtyShell(request.termType, request.cols, request.rows)
                 _snapshot.value = _snapshot.value.copy(state = SessionState.CONNECTED, error = null)
 
                 session.readLoop { bytes ->
-                    _outputBytes.tryEmit(bytes)
+                    bridge.feed(bytes)
                 }
                 _snapshot.value = _snapshot.value.copy(state = SessionState.DISCONNECTED)
             }.onFailure { err ->
@@ -91,8 +104,17 @@ class SessionManager @Inject constructor(
     }
 
     fun resize(cols: Int, rows: Int) {
+        lastCols = cols
+        lastRows = rows
+        bridge.resize(cols, rows)
         scope.launch {
             activeSession?.windowChange(cols, rows)
+        }
+    }
+
+    fun forceRepaint() {
+        scope.launch {
+            activeSession?.windowChange(lastCols, lastRows)
         }
     }
 

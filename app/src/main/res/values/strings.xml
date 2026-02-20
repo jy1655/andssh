@@ -3,4 +3,8 @@
     <string name="fgs_channel_name">SSH Sessions</string>
     <string name="fgs_notification_title">SSH session running</string>
     <string name="fgs_notification_body">Tap to return to terminal</string>
+    <string name="bell_channel_name">Terminal Bell</string>
+    <string name="bell_channel_description">Notifications triggered by terminal bell (BEL)</string>
+    <string name="bell_notification_title">Terminal Bell</string>
+    <string name="bell_notification_body">Bell received from %1$s</string>
 </resources>

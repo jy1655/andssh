@@ -18,7 +18,8 @@ Android native SSH terminal app scaffold focused on TTY-based remote CLI workflo
 - Placeholder key repository interface for Keystore+AEAD implementation
 
 - 한글/CJK 입력 정상 처리 (IME composition 인식) + 전각 문자 렌더링
-- 터미널 스크롤백 (드래그로 이전 출력 확인, 2000줄 버퍼)
+- 터미널 스크롤백 (드래그로 이전 출력 확인, 2000줄 버퍼) + PgUp/PgDn 버튼으로 페이지 단위 로컬 스크롤
+- Terminal bell 알림: BEL 수신 시 Android 알림 (디바운스 5초, 탭별 독립)
 
 ## Current scope
 
@@ -99,4 +100,6 @@ If `no permissions` appears, add a udev rule for your vendor ID and reload rules
 - `app/src/main/java/com/opencode/sshterminal/sftp/SshjSftpAdapter.kt`
 - `app/src/main/java/com/opencode/sshterminal/ui/sftp/SftpBrowserViewModel.kt`
 - `app/src/main/java/com/opencode/sshterminal/ui/sftp/SftpBrowserScreen.kt`
+- `app/src/main/java/com/opencode/sshterminal/service/BellNotifier.kt`
 - `app/src/test/java/com/opencode/sshterminal/sftp/SshjSftpAdapterTest.kt`
+- `app/src/test/java/com/opencode/sshterminal/ui/terminal/TerminalScrollTest.kt`

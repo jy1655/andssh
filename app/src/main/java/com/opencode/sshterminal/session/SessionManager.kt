@@ -2,6 +2,7 @@ package com.opencode.sshterminal.session
 
 import android.util.Log
 import com.opencode.sshterminal.di.ApplicationScope
+import com.opencode.sshterminal.service.BellNotifier
 import com.opencode.sshterminal.ssh.HostKeyChangedException
 import com.opencode.sshterminal.ssh.SshClient
 import com.opencode.sshterminal.ssh.SshSession
@@ -20,6 +21,7 @@ import javax.inject.Singleton
 @Singleton
 class SessionManager @Inject constructor(
     private val sshClient: SshClient,
+    private val bellNotifier: BellNotifier,
     @ApplicationScope private val scope: CoroutineScope
 ) {
     private val tabRegistry = mutableMapOf<TabId, TabSession>()
@@ -64,10 +66,12 @@ class SessionManager @Inject constructor(
 
     fun openTab(title: String, connectionId: String, request: ConnectRequest): TabId {
         val tabId = TabId()
+        val bellTitle = title
         val bridge = TermuxTerminalBridge(
             cols = 120,
             rows = 40,
-            onWriteToSsh = { bytes -> sendInputToTab(tabId, bytes) }
+            onWriteToSsh = { bytes -> sendInputToTab(tabId, bytes) },
+            onBellReceived = { scope.launch { bellNotifier.notifyBell(tabId, bellTitle) } }
         )
         val snapshotFlow = MutableStateFlow(
             SessionSnapshot(
@@ -123,6 +127,7 @@ class SessionManager @Inject constructor(
         val tab = removedTab ?: return
 
         tab.connectJob?.cancel()
+        bellNotifier.clearTab(tabId)
         scope.launch {
             runCatching { tab.sshSession?.close() }
         }

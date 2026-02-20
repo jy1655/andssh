@@ -16,7 +16,8 @@ class TermuxTerminalBridge(
     cols: Int = 120,
     rows: Int = 40,
     transcriptRows: Int = 2000,
-    private val onWriteToSsh: (ByteArray) -> Unit
+    private val onWriteToSsh: (ByteArray) -> Unit,
+    private val onBellReceived: () -> Unit = {}
 ) {
     private val lock = ReentrantReadWriteLock()
 
@@ -27,7 +28,7 @@ class TermuxTerminalBridge(
         override fun titleChanged(oldTitle: String?, newTitle: String?) {}
         override fun onCopyTextToClipboard(text: String?) {}
         override fun onPasteTextFromClipboard() {}
-        override fun onBell() {}
+        override fun onBell() { onBellReceived() }
         override fun onColorsChanged() {}
     }
 
@@ -39,7 +40,7 @@ class TermuxTerminalBridge(
         override fun onSessionFinished(finishedSession: TerminalSession?) {}
         override fun onCopyTextToClipboard(session: TerminalSession?, text: String?) {}
         override fun onPasteTextFromClipboard(session: TerminalSession?) {}
-        override fun onBell(session: TerminalSession?) {}
+        override fun onBell(session: TerminalSession?) { onBellReceived() }
         override fun onColorsChanged(session: TerminalSession?) {}
         override fun onTerminalCursorStateChange(state: Boolean) {}
         override fun getTerminalCursorStyle(): Int = TerminalEmulator.DEFAULT_TERMINAL_CURSOR_STYLE

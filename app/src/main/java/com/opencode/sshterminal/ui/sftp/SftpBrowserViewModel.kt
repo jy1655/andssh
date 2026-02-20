@@ -139,6 +139,10 @@ class SftpBrowserViewModel @Inject constructor(
 
     fun uploadFromUri(uri: Uri, remoteName: String) {
         viewModelScope.launch {
+            if (!isValidRemoteName(remoteName)) {
+                _uiState.value = _uiState.value.copy(status = "Invalid remote name", busy = false, transferProgress = -1f)
+                return@launch
+            }
             _uiState.value = _uiState.value.copy(busy = true, status = "Uploading...", transferProgress = 0f)
             runCatching {
                 val fd = context.contentResolver.openAssetFileDescriptor(uri, "r")
@@ -169,6 +173,10 @@ class SftpBrowserViewModel @Inject constructor(
 
     fun mkdir(name: String) {
         viewModelScope.launch {
+            if (!isValidRemoteName(name)) {
+                _uiState.value = _uiState.value.copy(status = "Invalid directory name", busy = false)
+                return@launch
+            }
             val currentDir = _uiState.value.remotePath.trimEnd('/')
             _uiState.value = _uiState.value.copy(busy = true)
             runCatching {
@@ -198,6 +206,10 @@ class SftpBrowserViewModel @Inject constructor(
 
     fun rename(oldPath: String, newName: String) {
         viewModelScope.launch {
+            if (!isValidRemoteName(newName)) {
+                _uiState.value = _uiState.value.copy(status = "Invalid new name", busy = false)
+                return@launch
+            }
             _uiState.value = _uiState.value.copy(busy = true)
             runCatching {
                 val parent = oldPath.substringBeforeLast('/')
@@ -210,4 +222,10 @@ class SftpBrowserViewModel @Inject constructor(
             }
         }
     }
+}
+
+internal fun isValidRemoteName(name: String): Boolean {
+    if (name.isBlank()) return false
+    if (name == "." || name == "..") return false
+    return '/' !in name && '\\' !in name
 }

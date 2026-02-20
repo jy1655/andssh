@@ -50,6 +50,12 @@ export PATH="$JAVA_HOME/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH"
 ./gradlew --no-daemon testDebugUnitTest
 ```
 
+4. (Optional) Run connected Android tests:
+
+```bash
+./gradlew --no-daemon connectedDebugAndroidTest
+```
+
 Output APK path:
 
 - `app/build/outputs/apk/debug/app-debug.apk`
@@ -78,11 +84,16 @@ adb devices -l
 4. 앱 실행:
 
 ```bash
-adb shell am start -n com.opencode.sshterminal/.app.MainActivity
+adb shell am start --user current -n com.opencode.sshterminal/.app.MainActivity
 ```
 
 If `unauthorized` appears, approve the RSA debugging prompt on the phone.
 If `no permissions` appears, add a udev rule for your vendor ID and reload rules.
+
+## Data note
+
+- Saved connection profiles are encrypted with Android Keystore-backed AES-GCM.
+- Legacy plaintext profile payloads are not loaded.
 
 ## Next implementation order
 

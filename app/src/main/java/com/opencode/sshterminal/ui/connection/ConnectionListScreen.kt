@@ -293,7 +293,7 @@ private fun ConnectionBottomSheet(
                                     id = initial?.id ?: java.util.UUID.randomUUID().toString(),
                                     name = name.ifBlank { "$username@$host" },
                                     host = host,
-                                    port = port.toIntOrNull() ?: 22,
+                                    port = port.toIntOrNull()?.takeIf { it in 1..65535 } ?: 22,
                                     username = username,
                                     password = password.ifBlank { null },
                                     privateKeyPath = privateKeyPath.ifBlank { null },

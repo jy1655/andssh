@@ -22,16 +22,33 @@ class SshjClient : SshClient {
         val ssh = SSHClient()
         val verifierSetup = configureHostKeyVerifier(ssh, request)
         ssh.connection.keepAlive.keepAliveInterval = 15
+        var sessionReady = false
 
         try {
             ssh.connect(request.host, request.port)
             verifierSetup.updatingVerifier?.persistAcceptedHostKeyIfNeeded()
             logKnownHostsDiffIfNeeded(request, verifierSetup)
+            when {
+                !request.password.isNullOrEmpty() -> {
+                    ssh.authPassword(request.username, request.password)
+                }
+                !request.privateKeyPath.isNullOrEmpty() -> {
+                    val keyProvider = if (request.privateKeyPassphrase.isNullOrEmpty()) {
+                        ssh.loadKeys(request.privateKeyPath)
+                    } else {
+                        ssh.loadKeys(request.privateKeyPath, request.privateKeyPassphrase)
+                    }
+                    ssh.authPublickey(request.username, keyProvider)
+                }
+                else -> error("Either password or privateKeyPath must be provided")
+            }
+
+            val session = ssh.startSession()
+            sessionReady = true
+            SshjSession(ssh, session)
         } catch (t: Throwable) {
             val changedFingerprint = verifierSetup.verifier?.changedFingerprint
             if (changedFingerprint != null) {
-                runCatching { ssh.disconnect() }
-                runCatching { ssh.close() }
                 throw HostKeyChangedException(
                     host = request.host,
                     port = request.port,
@@ -40,25 +57,12 @@ class SshjClient : SshClient {
                 )
             }
             throw t
-        }
-
-        when {
-            !request.password.isNullOrEmpty() -> {
-                ssh.authPassword(request.username, request.password)
+        } finally {
+            if (!sessionReady) {
+                runCatching { ssh.disconnect() }
+                runCatching { ssh.close() }
             }
-            !request.privateKeyPath.isNullOrEmpty() -> {
-                val keyProvider = if (request.privateKeyPassphrase.isNullOrEmpty()) {
-                    ssh.loadKeys(request.privateKeyPath)
-                } else {
-                    ssh.loadKeys(request.privateKeyPath, request.privateKeyPassphrase)
-                }
-                ssh.authPublickey(request.username, keyProvider)
-            }
-            else -> error("Either password or privateKeyPath must be provided")
         }
-
-        val session = ssh.startSession()
-        SshjSession(ssh, session)
     }
 
     private fun configureHostKeyVerifier(

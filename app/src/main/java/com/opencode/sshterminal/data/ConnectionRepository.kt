@@ -24,7 +24,7 @@ class ConnectionRepository @Inject constructor(
         prefs.asMap()
             .filter { (key, _) -> key.name.startsWith(KEY_PREFIX) }
             .values
-            .mapNotNull { value -> decodeProfile(value as String) }
+            .mapNotNull { value -> (value as? String)?.let(::decodeProfile) }
             .sortedByDescending { it.lastUsedEpochMillis }
     }
 
@@ -56,11 +56,10 @@ class ConnectionRepository @Inject constructor(
     }
 
     private fun decodeProfile(raw: String): ConnectionProfile? {
-        runCatching {
+        return runCatching {
             val decrypted = encryptionManager.decrypt(raw)
-            return json.decodeFromString<ConnectionProfile>(decrypted)
-        }
-        return runCatching { json.decodeFromString<ConnectionProfile>(raw) }.getOrNull()
+            json.decodeFromString<ConnectionProfile>(decrypted)
+        }.getOrNull()
     }
 
     private fun keyFor(id: String) = stringPreferencesKey("$KEY_PREFIX$id")

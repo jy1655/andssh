@@ -272,8 +272,9 @@ class SessionManager @Inject constructor(
 
     private suspend fun connectTab(tabId: TabId, request: ConnectRequest) {
         val currentJob = currentCoroutineContext()[Job]
+        var session: SshSession? = null
         try {
-            val session = sshClient.connect(request)
+            session = sshClient.connect(request)
             var bridge: TermuxTerminalBridge?
             synchronized(tabRegistry) {
                 val tab = tabRegistry[tabId]
@@ -317,8 +318,10 @@ class SessionManager @Inject constructor(
             }
             refreshFlows()
         } catch (cancelled: CancellationException) {
+            runCatching { session?.close() }
             throw cancelled
         } catch (err: Throwable) {
+            runCatching { session?.close() }
             Log.e(TAG, "Connection failed", err)
             synchronized(tabRegistry) {
                 val tab = tabRegistry[tabId] ?: return@synchronized

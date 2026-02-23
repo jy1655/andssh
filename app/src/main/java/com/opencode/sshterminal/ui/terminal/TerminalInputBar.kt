@@ -122,9 +122,9 @@ private fun TerminalShortcutRow(
         KeyChip("\u2193") { actions.onShortcut(TerminalShortcut.ARROW_DOWN) }
         KeyChip("\u2190") { actions.onShortcut(TerminalShortcut.ARROW_LEFT) }
         KeyChip("\u2192") { actions.onShortcut(TerminalShortcut.ARROW_RIGHT) }
+        KeyChip("\u232B") { actions.onShortcut(TerminalShortcut.BACKSPACE) }
         KeyChip("PgUp") { actions.onPageScroll?.invoke(1) }
         KeyChip("PgDn") { actions.onPageScroll?.invoke(-1) }
-        KeyChip("\u232B") { actions.onShortcut(TerminalShortcut.BACKSPACE) }
         KeyChip("^C") { actions.onShortcut(TerminalShortcut.CTRL_C) }
         KeyChip("^D") { actions.onShortcut(TerminalShortcut.CTRL_D) }
     }

@@ -14,7 +14,7 @@ data class TabInfo(
     val tabId: TabId,
     val title: String,
     val connectionId: String,
-    val state: SessionState
+    val state: SessionState,
 )
 
 /** Internal holder for everything a single tab owns. */
@@ -24,16 +24,18 @@ internal class TabSession(
     val connectionId: String,
     val bridge: TermuxTerminalBridge,
     val snapshotFlow: MutableStateFlow<SessionSnapshot>,
-    var sshSession: SshSession? = null,
-    var connectJob: Job? = null,
-    var pendingHostKeyRequest: ConnectRequest? = null,
-    var lastCols: Int = 120,
-    var lastRows: Int = 40
 ) {
-    fun toTabInfo(): TabInfo = TabInfo(
-        tabId = tabId,
-        title = title,
-        connectionId = connectionId,
-        state = snapshotFlow.value.state
-    )
+    var sshSession: SshSession? = null
+    var connectJob: Job? = null
+    var pendingHostKeyRequest: ConnectRequest? = null
+    var lastCols: Int = 120
+    var lastRows: Int = 40
+
+    fun toTabInfo(): TabInfo =
+        TabInfo(
+            tabId = tabId,
+            title = title,
+            connectionId = connectionId,
+            state = snapshotFlow.value.state,
+        )
 }

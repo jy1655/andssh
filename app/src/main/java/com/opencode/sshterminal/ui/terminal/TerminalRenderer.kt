@@ -1,30 +1,18 @@
 package com.opencode.sshterminal.ui.terminal
 
-import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.focusable
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
@@ -33,7 +21,6 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.opencode.sshterminal.R
 import com.opencode.sshterminal.terminal.TermuxTerminalBridge
@@ -44,37 +31,39 @@ import com.termux.terminal.TerminalBuffer
 import com.termux.terminal.WcWidth
 import com.termux.terminal.TextStyle as TermuxTextStyle
 
-private val TERMINAL_FONT_SIZE = 12.sp
-private val TERMINAL_FONT_FAMILY = FontFamily(Font(R.font.meslo_lgs_nf_regular))
+internal val TERMINAL_FONT_SIZE = 12.sp
+internal val TERMINAL_FONT_FAMILY = FontFamily(Font(R.font.meslo_lgs_nf_regular))
 
-private val ANSI_COLORS = arrayOf(
-    Color(0xFF000000), // 0 black
-    Color(0xFFCD0000), // 1 red
-    Color(0xFF00CD00), // 2 green
-    Color(0xFFCDCD00), // 3 yellow
-    Color(0xFF0000EE), // 4 blue
-    Color(0xFFCD00CD), // 5 magenta
-    Color(0xFF00CDCD), // 6 cyan
-    Color(0xFFE5E5E5), // 7 white
-    Color(0xFF7F7F7F), // 8 bright black
-    Color(0xFFFF0000), // 9 bright red
-    Color(0xFF00FF00), // 10 bright green
-    Color(0xFFFFFF00), // 11 bright yellow
-    Color(0xFF5C5CFF), // 12 bright blue
-    Color(0xFFFF00FF), // 13 bright magenta
-    Color(0xFF00FFFF), // 14 bright cyan
-    Color(0xFFFFFFFF)  // 15 bright white
-)
+// ANSI 16-color base palette (0-15).
+private val ANSI_COLORS =
+    arrayOf(
+        Color(0xFF000000),
+        Color(0xFFCD0000),
+        Color(0xFF00CD00),
+        Color(0xFFCDCD00),
+        Color(0xFF0000EE),
+        Color(0xFFCD00CD),
+        Color(0xFF00CDCD),
+        Color(0xFFE5E5E5),
+        Color(0xFF7F7F7F),
+        Color(0xFFFF0000),
+        Color(0xFF00FF00),
+        Color(0xFFFFFF00),
+        Color(0xFF5C5CFF),
+        Color(0xFFFF00FF),
+        Color(0xFF00FFFF),
+        Color(0xFFFFFFFF),
+    )
 
 private val DEFAULT_FG = TerminalForeground
-private val DEFAULT_BG = TerminalBackground
-private val CURSOR_COLOR = TerminalCursor
+internal val DEFAULT_BG = TerminalBackground
+internal val CURSOR_COLOR = TerminalCursor
 
 data class TerminalSelection(
     val startRow: Int,
     val startCol: Int,
     val endRow: Int,
-    val endCol: Int
+    val endCol: Int,
 ) {
     val normalized: TerminalSelection
         get() {
@@ -89,250 +78,143 @@ data class TerminalSelection(
         get() = startRow == endRow && startCol == endCol
 }
 
+data class TerminalScrollCounters(
+    val pageUpCount: Int = 0,
+    val pageDownCount: Int = 0,
+)
+
+data class TerminalRendererCallbacks(
+    val onTap: (() -> Unit)? = null,
+    val onResize: ((cols: Int, rows: Int) -> Unit)? = null,
+    val onCopyText: ((String) -> Unit)? = null,
+)
+
 @Composable
 fun TerminalRenderer(
     bridge: TermuxTerminalBridge,
     modifier: Modifier = Modifier,
-    pageUpCount: Int = 0,
-    pageDownCount: Int = 0,
-    onTap: (() -> Unit)? = null,
-    onResize: ((cols: Int, rows: Int) -> Unit)? = null,
-    onCopyText: ((String) -> Unit)? = null
+    scrollCounters: TerminalScrollCounters = TerminalScrollCounters(),
+    callbacks: TerminalRendererCallbacks = TerminalRendererCallbacks(),
 ) {
     val renderVersion by bridge.renderVersion.collectAsState()
     val textMeasurer = rememberTextMeasurer()
-
-    val charSize = remember(textMeasurer) {
-        val result = textMeasurer.measure(
-            "W",
-            style = TextStyle(fontFamily = TERMINAL_FONT_FAMILY, fontSize = TERMINAL_FONT_SIZE)
-        )
-        Size(result.size.width.toFloat(), result.size.height.toFloat())
-    }
-
+    val charSize = rememberTerminalCharSize(textMeasurer)
     var canvasSize by remember { mutableStateOf(IntSize.Zero) }
-    var scrollOffset by remember(bridge) { mutableStateOf(0) }
-    var scrollPixelAccumulator by remember(bridge) { mutableStateOf(0f) }
-    var selection by remember { mutableStateOf<TerminalSelection?>(null) }
-    val charHeightPx by rememberUpdatedState(charSize.height)
-    val charWidthPx by rememberUpdatedState(charSize.width)
+    val scrollOffsetState = remember(bridge) { mutableStateOf(0) }
+    val scrollPixelAccumulatorState = remember(bridge) { mutableStateOf(0f) }
+    val selectionState = remember { mutableStateOf<TerminalSelection?>(null) }
+    val gestureState = TerminalGestureState(scrollOffsetState, scrollPixelAccumulatorState, selectionState)
+    val effectsState = TerminalEffectsState(scrollOffsetState, scrollPixelAccumulatorState)
+    val gestureEnvironment =
+        TerminalGestureEnvironment(
+            bridge = bridge,
+            charWidthPx = charSize.width,
+            charHeightPx = charSize.height,
+            onTap = callbacks.onTap,
+        )
+    TerminalRendererEffects(
+        config =
+            TerminalEffectsConfig(
+                bridge = bridge,
+                canvasSize = canvasSize,
+                charSize = charSize,
+                scrollCounters = scrollCounters,
+                renderVersion = renderVersion,
+                onResize = callbacks.onResize,
+            ),
+        state = effectsState,
+    )
 
-    LaunchedEffect(canvasSize, charSize) {
-        if (canvasSize.width > 0 && canvasSize.height > 0 && charSize.width > 0 && charSize.height > 0) {
-            val cols = (canvasSize.width / charSize.width).toInt().coerceAtLeast(1)
-            val rows = (canvasSize.height / charSize.height).toInt().coerceAtLeast(1)
-            if (cols != bridge.termCols || rows != bridge.termRows) {
-                onResize?.invoke(cols, rows)
-            }
+    val surfaceModifier =
+        modifier
+            .onSizeChanged { canvasSize = it }
+            .terminalGestureInput(environment = gestureEnvironment, state = gestureState)
+    TerminalRenderSurface(
+        bridge = bridge,
+        modifier = surfaceModifier,
+        state = TerminalRenderState(scrollOffsetState.value, selectionState.value),
+        config = TerminalRenderConfig(charSize, textMeasurer, callbacks.onCopyText),
+    )
+}
+
+@Composable
+private fun TerminalRendererEffects(
+    config: TerminalEffectsConfig,
+    state: TerminalEffectsState,
+) {
+    val bridge = config.bridge
+
+    LaunchedEffect(config.canvasSize, config.charSize) {
+        if (config.canvasSize.width <= 0 || config.canvasSize.height <= 0) return@LaunchedEffect
+        if (config.charSize.width <= 0f || config.charSize.height <= 0f) return@LaunchedEffect
+        val cols = (config.canvasSize.width / config.charSize.width).toInt().coerceAtLeast(1)
+        val rows = (config.canvasSize.height / config.charSize.height).toInt().coerceAtLeast(1)
+        if (cols != bridge.termCols || rows != bridge.termRows) config.onResize?.invoke(cols, rows)
+    }
+
+    LaunchedEffect(config.renderVersion) {
+        if (state.scrollOffsetState.value == 0) {
+            state.scrollPixelAccumulatorState.value = 0f
         }
     }
 
-    // Auto-scroll: only snap to bottom when user is already at bottom
-    LaunchedEffect(renderVersion) {
-        if (scrollOffset == 0) {
-            scrollPixelAccumulator = 0f
-        }
-    }
-
-    LaunchedEffect(pageUpCount) {
-        if (pageUpCount > 0) {
+    LaunchedEffect(config.scrollCounters.pageUpCount) {
+        if (config.scrollCounters.pageUpCount > 0) {
             val pageRows = bridge.termRows.coerceAtLeast(1)
             val maxScroll = bridge.screen.activeTranscriptRows
-            scrollOffset = (scrollOffset + pageRows).coerceIn(0, maxScroll)
+            state.scrollOffsetState.value = (state.scrollOffsetState.value + pageRows).coerceIn(0, maxScroll)
         }
     }
 
-    LaunchedEffect(pageDownCount) {
-        if (pageDownCount > 0) {
-            scrollOffset = (scrollOffset - bridge.termRows.coerceAtLeast(1)).coerceAtLeast(0)
-        }
-    }
-
-    @Suppress("UNUSED_EXPRESSION")
-    renderVersion
-
-    Box(
-        modifier = modifier
-            .focusable()
-            .onSizeChanged { canvasSize = it }
-            .pointerInput(Unit) {
-                awaitEachGesture {
-                    val down = awaitFirstDown(requireUnconsumed = false)
-                    val longPressTimeout = viewConfiguration.longPressTimeoutMillis
-                    val touchSlop = viewConfiguration.touchSlop
-                    val longPressAt = down.uptimeMillis + longPressTimeout
-                    val downPosition = down.position
-                    var pointerId = down.id
-                    var lastPosition = down.position
-                    var selectionMode = false
-                    var scrollMode = false
-                    var ended = false
-
-                    while (!ended) {
-                        val event = awaitPointerEvent()
-                        val primaryChange = event.changes.firstOrNull { it.id == pointerId }
-                            ?: event.changes.firstOrNull()
-                        if (primaryChange == null) {
-                            break
-                        }
-                        val change = primaryChange
-                        pointerId = change.id
-
-                        if (change.changedToUpIgnoreConsumed()) {
-                            ended = true
-                            break
-                        }
-
-                        if (!selectionMode && !scrollMode && change.uptimeMillis >= longPressAt) {
-                            val (bufferRow, col) = offsetToCell(
-                                offset = downPosition,
-                                charWidthPx = charWidthPx,
-                                charHeightPx = charHeightPx,
-                                scrollOffset = scrollOffset,
-                                cols = bridge.termCols,
-                                rows = bridge.termRows
-                            )
-                            selection = TerminalSelection(
-                                startRow = bufferRow,
-                                startCol = col,
-                                endRow = bufferRow,
-                                endCol = col
-                            )
-                            selectionMode = true
-                        }
-
-                        if (!selectionMode && !scrollMode) {
-                            val totalDelta = change.position - downPosition
-                            if (totalDelta.getDistance() > touchSlop) {
-                                scrollMode = true
-                            }
-                        }
-
-                        if (selectionMode) {
-                            val (bufferRow, col) = offsetToCell(
-                                offset = change.position,
-                                charWidthPx = charWidthPx,
-                                charHeightPx = charHeightPx,
-                                scrollOffset = scrollOffset,
-                                cols = bridge.termCols,
-                                rows = bridge.termRows
-                            )
-                            selection = selection?.copy(
-                                endRow = bufferRow,
-                                endCol = (col + 1).coerceAtMost(bridge.termCols)
-                            )
-                            change.consume()
-                        } else if (scrollMode) {
-                            val dragAmount = change.position.y - lastPosition.y
-                            if (charHeightPx > 0f) {
-                                val maxScroll = bridge.screen.activeTranscriptRows
-                                val result = computeScrollUpdate(
-                                    dragAmount, scrollOffset,
-                                    scrollPixelAccumulator, charHeightPx, maxScroll
-                                )
-                                scrollOffset = result.newScrollOffset
-                                scrollPixelAccumulator = result.newPixelAccumulator
-                            }
-                            change.consume()
-                        }
-
-                        lastPosition = change.position
-                    }
-
-                    if (scrollMode) {
-                        scrollPixelAccumulator = 0f
-                    }
-
-                    if (!selectionMode && !scrollMode && ended) {
-                        if (selection != null) {
-                            selection = null
-                        } else {
-                            onTap?.invoke()
-                        }
-                    }
-                }
-            }
-    ) {
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            drawRect(DEFAULT_BG, Offset.Zero, size)
-
-            bridge.withReadLock {
-                val screen = bridge.screen
-                val rows = bridge.termRows
-                val cols = bridge.termCols
-                val effectiveScroll = scrollOffset.coerceIn(0, screen.activeTranscriptRows)
-
-                for (screenRow in 0 until rows) {
-                    val bufferRow = screenRow - effectiveScroll
-                    drawTerminalRow(screen, bufferRow, screenRow, cols, charSize, textMeasurer)
-                }
-
-                val cursorScreenRow = bridge.cursorRow + effectiveScroll
-                if (cursorScreenRow in 0 until rows && bridge.emulator.shouldCursorBeVisible()) {
-                    val cx = bridge.cursorCol * charSize.width
-                    val cy = cursorScreenRow * charSize.height
-                    drawRect(CURSOR_COLOR, Offset(cx, cy), Size(charSize.width, charSize.height), alpha = 0.5f)
-                }
-
-                selection?.normalized?.let { sel ->
-                    for (screenRow in 0 until rows) {
-                        val bufferRow = screenRow - effectiveScroll
-                        if (bufferRow < sel.startRow || bufferRow > sel.endRow) continue
-
-                        val startCol = if (bufferRow == sel.startRow) sel.startCol else 0
-                        val endCol = if (bufferRow == sel.endRow) sel.endCol else cols
-                        if (endCol <= startCol) continue
-
-                        val x = startCol * charSize.width
-                        val w = (endCol - startCol) * charSize.width
-                        val y = screenRow * charSize.height
-                        drawRect(
-                            color = Color(0x5033B5E5),
-                            topLeft = Offset(x, y),
-                            size = Size(w, charSize.height)
-                        )
-                    }
-                }
-            }
-        }
-
-        if (selection != null && selection?.isEmpty == false && onCopyText != null) {
-            Button(
-                onClick = {
-                    bridge.withReadLock {
-                        val text = extractSelectedText(bridge.screen, selection!!, bridge.termCols)
-                        if (text.isNotEmpty()) onCopyText(text)
-                    }
-                },
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(8.dp)
-            ) {
-                Text("Copy")
-            }
+    LaunchedEffect(config.scrollCounters.pageDownCount) {
+        if (config.scrollCounters.pageDownCount > 0) {
+            state.scrollOffsetState.value =
+                (state.scrollOffsetState.value - bridge.termRows.coerceAtLeast(1)).coerceAtLeast(0)
         }
     }
 }
 
-private fun offsetToCell(
+private data class TerminalEffectsConfig(
+    val bridge: TermuxTerminalBridge,
+    val canvasSize: IntSize,
+    val charSize: Size,
+    val scrollCounters: TerminalScrollCounters,
+    val renderVersion: Long,
+    val onResize: ((cols: Int, rows: Int) -> Unit)?,
+)
+
+private data class TerminalEffectsState(
+    val scrollOffsetState: MutableState<Int>,
+    val scrollPixelAccumulatorState: MutableState<Float>,
+)
+
+internal data class TerminalCellLayout(
+    val charWidthPx: Float,
+    val charHeightPx: Float,
+    val scrollOffset: Int,
+    val cols: Int,
+    val rows: Int,
+)
+
+internal fun offsetToCell(
     offset: Offset,
-    charWidthPx: Float,
-    charHeightPx: Float,
-    scrollOffset: Int,
-    cols: Int,
-    rows: Int
+    layout: TerminalCellLayout,
 ): Pair<Int, Int> {
-    val safeCols = cols.coerceAtLeast(1)
-    val safeRows = rows.coerceAtLeast(1)
-    val safeCharWidth = charWidthPx.coerceAtLeast(1f)
-    val safeCharHeight = charHeightPx.coerceAtLeast(1f)
+    val safeCols = layout.cols.coerceAtLeast(1)
+    val safeRows = layout.rows.coerceAtLeast(1)
+    val safeCharWidth = layout.charWidthPx.coerceAtLeast(1f)
+    val safeCharHeight = layout.charHeightPx.coerceAtLeast(1f)
     val screenRow = (offset.y / safeCharHeight).toInt().coerceIn(0, safeRows - 1)
     val col = (offset.x / safeCharWidth).toInt().coerceIn(0, safeCols - 1)
-    val bufferRow = screenRow - scrollOffset
+    val bufferRow = screenRow - layout.scrollOffset
     return Pair(bufferRow, col)
 }
 
-private fun extractSelectedText(screen: TerminalBuffer, selection: TerminalSelection, cols: Int): String {
+internal fun extractSelectedText(
+    screen: TerminalBuffer,
+    selection: TerminalSelection,
+    cols: Int,
+): String {
     val sel = selection.normalized
     val safeCols = cols.coerceAtLeast(1)
     val sb = StringBuilder()
@@ -344,11 +226,12 @@ private fun extractSelectedText(screen: TerminalBuffer, selection: TerminalSelec
         var col = colStart
         while (col < colEnd) {
             val startOfCol = termRow.findStartOfColumn(col)
-            val codePoint = if (startOfCol >= 0 && startOfCol < termRow.spaceUsed) {
-                Character.codePointAt(termRow.mText, startOfCol)
-            } else {
-                ' '.code
-            }
+            val codePoint =
+                if (startOfCol >= 0 && startOfCol < termRow.spaceUsed) {
+                    Character.codePointAt(termRow.mText, startOfCol)
+                } else {
+                    ' '.code
+                }
             if (codePoint in 0x20..0x10FFFF) {
                 sb.appendCodePoint(codePoint)
             }
@@ -360,14 +243,15 @@ private fun extractSelectedText(screen: TerminalBuffer, selection: TerminalSelec
     return sb.toString()
 }
 
-private fun DrawScope.drawTerminalRow(
+internal fun DrawScope.drawTerminalRow(
     screen: TerminalBuffer,
     bufferRow: Int,
     screenRow: Int,
-    cols: Int,
-    charSize: Size,
-    textMeasurer: TextMeasurer
+    config: TerminalRowRenderConfig,
 ) {
+    val cols = config.cols
+    val charSize = config.charSize
+    val textMeasurer = config.textMeasurer
     val termRow = screen.allocateFullLineIfNecessary(screen.externalToInternalRow(bufferRow))
     val y = screenRow * charSize.height
     if (y >= size.height) return
@@ -383,22 +267,26 @@ private fun DrawScope.drawTerminalRow(
         var fg = resolveColor(fgIndex, DEFAULT_FG)
         var bg = resolveColor(bgIndex, DEFAULT_BG)
         if (inverse) {
-            val tmp = fg; fg = bg; bg = tmp
+            val tmp = fg
+            fg = bg
+            bg = tmp
         }
 
         val x = col * charSize.width
         if (x >= size.width) break
         val startCol = termRow.findStartOfColumn(col)
-        val codePoint = if (startCol >= 0 && startCol < termRow.spaceUsed) {
-            Character.codePointAt(termRow.mText, startCol)
-        } else {
-            ' '.code
-        }
-        val ch = if (codePoint in 0x20..0x10FFFF) {
-            String(Character.toChars(codePoint))
-        } else {
-            " "
-        }
+        val codePoint =
+            if (startCol >= 0 && startCol < termRow.spaceUsed) {
+                Character.codePointAt(termRow.mText, startCol)
+            } else {
+                ' '.code
+            }
+        val ch =
+            if (codePoint in 0x20..0x10FFFF) {
+                String(Character.toChars(codePoint))
+            } else {
+                " "
+            }
         val charWidth = if (codePoint > 0x7F) WcWidth.width(codePoint).coerceAtLeast(1) else 1
 
         if (bg != DEFAULT_BG) {
@@ -412,19 +300,29 @@ private fun DrawScope.drawTerminalRow(
                 textMeasurer,
                 ch,
                 topLeft = Offset(safeX, y),
-                style = TextStyle(
-                    color = fg,
-                    fontFamily = TERMINAL_FONT_FAMILY,
-                    fontSize = TERMINAL_FONT_SIZE,
-                    fontWeight = if (bold) androidx.compose.ui.text.font.FontWeight.Bold else null
-                )
+                style =
+                    TextStyle(
+                        color = fg,
+                        fontFamily = TERMINAL_FONT_FAMILY,
+                        fontSize = TERMINAL_FONT_SIZE,
+                        fontWeight = if (bold) androidx.compose.ui.text.font.FontWeight.Bold else null,
+                    ),
             )
         }
         col += charWidth
     }
 }
 
-private fun resolveColor(index: Int, default: Color): Color {
+internal data class TerminalRowRenderConfig(
+    val cols: Int,
+    val charSize: Size,
+    val textMeasurer: TextMeasurer,
+)
+
+private fun resolveColor(
+    index: Int,
+    default: Color,
+): Color {
     return when {
         index == TermuxTextStyle.COLOR_INDEX_FOREGROUND -> DEFAULT_FG
         index == TermuxTextStyle.COLOR_INDEX_BACKGROUND -> DEFAULT_BG
@@ -460,12 +358,12 @@ private fun color256(index: Int): Color {
  *
  * Convention:
  *  - scrollOffset 0 = live (bottom) view; >0 = scrolled back into history.
- *  - Swipe UP   → dragAmount < 0 → rowDelta < 0 → (−rowDelta) > 0 → offset increases  (history).
- *  - Swipe DOWN → dragAmount > 0 → rowDelta > 0 → (−rowDelta) < 0 → offset decreases (toward live).
+ *  - Swipe UP   → dragAmount < 0 → rowDelta < 0 → offset decreases (toward live).
+ *  - Swipe DOWN → dragAmount > 0 → rowDelta > 0 → offset increases (history).
  */
 internal data class ScrollUpdate(
     val newScrollOffset: Int,
-    val newPixelAccumulator: Float
+    val newPixelAccumulator: Float,
 )
 
 internal fun computeScrollUpdate(
@@ -473,19 +371,19 @@ internal fun computeScrollUpdate(
     currentScrollOffset: Int,
     pixelAccumulator: Float,
     charHeightPx: Float,
-    maxScroll: Int
+    maxScroll: Int,
 ): ScrollUpdate {
     val newAccumulator = pixelAccumulator + dragAmount
     val rowDelta = (newAccumulator / charHeightPx).toInt()
     return if (rowDelta != 0) {
         ScrollUpdate(
-            newScrollOffset = (currentScrollOffset - rowDelta).coerceIn(0, maxScroll),
-            newPixelAccumulator = newAccumulator - rowDelta * charHeightPx
+            newScrollOffset = (currentScrollOffset + rowDelta).coerceIn(0, maxScroll),
+            newPixelAccumulator = newAccumulator - rowDelta * charHeightPx,
         )
     } else {
         ScrollUpdate(
             newScrollOffset = currentScrollOffset,
-            newPixelAccumulator = newAccumulator
+            newPixelAccumulator = newAccumulator,
         )
     }
 }

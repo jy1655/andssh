@@ -17,12 +17,12 @@ import com.opencode.sshterminal.ui.terminal.TerminalViewModel
 @Composable
 fun SSHNavHost(
     navController: NavHostController,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     NavHost(
         navController = navController,
         startDestination = Routes.CONNECTION_LIST,
-        modifier = modifier
+        modifier = modifier,
     ) {
         composable(Routes.CONNECTION_LIST) {
             ConnectionListScreen(
@@ -33,7 +33,7 @@ fun SSHNavHost(
                     navController.navigate(Routes.TERMINAL) {
                         launchSingleTop = true
                     }
-                }
+                },
             )
         }
 
@@ -41,9 +41,10 @@ fun SSHNavHost(
             val viewModel: TerminalViewModel = hiltViewModel()
 
             LaunchedEffect(Unit) {
-                val pendingId = navController.previousBackStackEntry
-                    ?.savedStateHandle
-                    ?.remove<String>("pendingConnectionId")
+                val pendingId =
+                    navController.previousBackStackEntry
+                        ?.savedStateHandle
+                        ?.remove<String>("pendingConnectionId")
                 if (pendingId != null) {
                     viewModel.openTab(pendingId)
                 }
@@ -56,16 +57,16 @@ fun SSHNavHost(
                 onAllTabsClosed = {
                     navController.popBackStack(Routes.CONNECTION_LIST, inclusive = false)
                 },
-                viewModel = viewModel
+                viewModel = viewModel,
             )
         }
 
         composable(
             route = Routes.SFTP,
-            arguments = listOf(navArgument("connectionId") { type = NavType.StringType })
+            arguments = listOf(navArgument("connectionId") { type = NavType.StringType }),
         ) {
             SftpBrowserScreen(
-                onBack = { navController.popBackStack() }
+                onBack = { navController.popBackStack() },
             )
         }
     }

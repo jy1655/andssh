@@ -2,21 +2,21 @@ package com.opencode.sshterminal.sftp
 
 import com.opencode.sshterminal.session.ConnectRequest
 import com.opencode.sshterminal.session.HostKeyPolicy
-import java.io.File
-import java.io.InputStream
-import java.io.OutputStream
-import java.security.PublicKey
-import java.util.Base64
+import com.opencode.sshterminal.ssh.authenticate
+import com.opencode.sshterminal.ssh.ensureKnownHostsFile
+import com.opencode.sshterminal.ssh.upsertKnownHostEntry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import net.schmizz.sshj.SSHClient
-import net.schmizz.sshj.common.Buffer
-import net.schmizz.sshj.common.KeyType
 import net.schmizz.sshj.sftp.OpenMode
 import net.schmizz.sshj.sftp.RemoteResourceInfo
 import net.schmizz.sshj.sftp.SFTPClient
 import net.schmizz.sshj.transport.verification.OpenSSHKnownHosts
 import net.schmizz.sshj.transport.verification.PromiscuousVerifier
+import java.io.File
+import java.io.InputStream
+import java.io.OutputStream
+import java.security.PublicKey
 import java.util.EnumSet
 
 class SshjSftpAdapter : SftpChannelAdapter {
@@ -25,25 +25,26 @@ class SshjSftpAdapter : SftpChannelAdapter {
 
     override val isConnected: Boolean get() = ssh?.isConnected == true && sftp != null
 
-    override suspend fun connect(request: ConnectRequest) = withContext(Dispatchers.IO) {
-        close()
-        val client = SSHClient()
-        val verifier = configureHostKeyVerifier(client, request)
-        var success = false
-        try {
-            client.connect(request.host, request.port)
-            authenticate(client, request)
-            verifier?.persistAcceptedHostKeyIfNeeded()
-            ssh = client
-            sftp = client.newSFTPClient()
-            success = true
-        } finally {
-            if (!success) {
-                runCatching { client.disconnect() }
-                runCatching { client.close() }
+    override suspend fun connect(request: ConnectRequest) =
+        withContext(Dispatchers.IO) {
+            close()
+            val client = SSHClient()
+            val verifier = configureHostKeyVerifier(client, request)
+            var success = false
+            try {
+                client.connect(request.host, request.port)
+                client.authenticate(request)
+                verifier?.persistAcceptedHostKeyIfNeeded()
+                ssh = client
+                sftp = client.newSFTPClient()
+                success = true
+            } finally {
+                if (!success) {
+                    runCatching { client.disconnect() }
+                    runCatching { client.close() }
+                }
             }
         }
-    }
 
     override fun close() {
         runCatching { sftp?.close() }
@@ -53,26 +54,33 @@ class SshjSftpAdapter : SftpChannelAdapter {
         ssh = null
     }
 
-    override suspend fun list(remotePath: String): List<RemoteEntry> = withContext(Dispatchers.IO) {
-        requireSftp().ls(remotePath).map { it.toRemoteEntry() }
-    }
-
-    override suspend fun exists(remotePath: String): Boolean = withContext(Dispatchers.IO) {
-        try {
-            requireSftp().stat(remotePath)
-            true
-        } catch (t: Throwable) {
-            if (isSftpNoSuchFileError(t)) false else throw t
+    override suspend fun list(remotePath: String): List<RemoteEntry> =
+        withContext(Dispatchers.IO) {
+            requireSftp().ls(remotePath).map { it.toRemoteEntry() }
         }
-    }
 
-    override suspend fun upload(localPath: String, remotePath: String) = withContext(Dispatchers.IO) {
+    override suspend fun exists(remotePath: String): Boolean =
+        withContext(Dispatchers.IO) {
+            try {
+                requireSftp().stat(remotePath)
+                true
+            } catch (t: Throwable) {
+                if (isSftpNoSuchFileError(t)) false else throw t
+            }
+        }
+
+    override suspend fun upload(
+        localPath: String,
+        remotePath: String,
+    ) = withContext(Dispatchers.IO) {
         requireSftp().put(localPath, remotePath)
     }
 
     override suspend fun uploadStream(
-        input: InputStream, remotePath: String, totalBytes: Long,
-        onProgress: ((Long, Long) -> Unit)?
+        input: InputStream,
+        remotePath: String,
+        totalBytes: Long,
+        onProgress: ((Long, Long) -> Unit)?,
     ) = withContext(Dispatchers.IO) {
         val handle = requireSftp().open(remotePath, EnumSet.of(OpenMode.WRITE, OpenMode.CREAT, OpenMode.TRUNC))
         try {
@@ -90,13 +98,17 @@ class SshjSftpAdapter : SftpChannelAdapter {
         }
     }
 
-    override suspend fun download(remotePath: String, localPath: String) = withContext(Dispatchers.IO) {
+    override suspend fun download(
+        remotePath: String,
+        localPath: String,
+    ) = withContext(Dispatchers.IO) {
         requireSftp().get(remotePath, localPath)
     }
 
     override suspend fun downloadStream(
-        remotePath: String, output: OutputStream,
-        onProgress: ((Long, Long) -> Unit)?
+        remotePath: String,
+        output: OutputStream,
+        onProgress: ((Long, Long) -> Unit)?,
     ) = withContext(Dispatchers.IO) {
         val attrs = requireSftp().stat(remotePath)
         val totalBytes = attrs.size
@@ -117,61 +129,48 @@ class SshjSftpAdapter : SftpChannelAdapter {
         }
     }
 
-    override suspend fun mkdir(remotePath: String) = withContext(Dispatchers.IO) {
-        requireSftp().mkdir(remotePath)
-    }
-
-    override suspend fun rm(remotePath: String) = withContext(Dispatchers.IO) {
-        val attrs = requireSftp().stat(remotePath)
-        if (attrs.type == net.schmizz.sshj.sftp.FileMode.Type.DIRECTORY) {
-            requireSftp().rmdir(remotePath)
-        } else {
-            requireSftp().rm(remotePath)
+    override suspend fun mkdir(remotePath: String) =
+        withContext(Dispatchers.IO) {
+            requireSftp().mkdir(remotePath)
         }
-    }
 
-    override suspend fun rename(oldPath: String, newPath: String) = withContext(Dispatchers.IO) {
+    override suspend fun rm(remotePath: String) =
+        withContext(Dispatchers.IO) {
+            val attrs = requireSftp().stat(remotePath)
+            if (attrs.type == net.schmizz.sshj.sftp.FileMode.Type.DIRECTORY) {
+                requireSftp().rmdir(remotePath)
+            } else {
+                requireSftp().rm(remotePath)
+            }
+        }
+
+    override suspend fun rename(
+        oldPath: String,
+        newPath: String,
+    ) = withContext(Dispatchers.IO) {
         requireSftp().rename(oldPath, newPath)
     }
 
-    private fun requireSftp(): SFTPClient =
-        sftp ?: error("Not connected. Call connect() first.")
+    private fun requireSftp(): SFTPClient = sftp ?: error("Not connected. Call connect() first.")
 
-    private fun authenticate(ssh: SSHClient, request: ConnectRequest) {
-        when {
-            !request.password.isNullOrEmpty() -> ssh.authPassword(request.username, request.password)
-            !request.privateKeyPath.isNullOrEmpty() -> {
-                val keyProvider = if (request.privateKeyPassphrase.isNullOrEmpty()) {
-                    ssh.loadKeys(request.privateKeyPath)
-                } else {
-                    ssh.loadKeys(request.privateKeyPath, request.privateKeyPassphrase)
-                }
-                ssh.authPublickey(request.username, keyProvider)
-            }
-            else -> error("Either password or privateKeyPath must be provided")
-        }
-    }
-
-    private fun configureHostKeyVerifier(ssh: SSHClient, request: ConnectRequest): UpdatingKnownHostsVerifier? {
+    private fun configureHostKeyVerifier(
+        ssh: SSHClient,
+        request: ConnectRequest,
+    ): UpdatingKnownHostsVerifier? {
         return when (request.hostKeyPolicy) {
-            HostKeyPolicy.TRUST_ONCE -> ssh.addHostKeyVerifier(PromiscuousVerifier())
-                .let { null }
-            HostKeyPolicy.STRICT -> ssh.addHostKeyVerifier(
-                RejectingKnownHostsVerifier(ensureFileExists(request.knownHostsPath))
-            ).let { null }
+            HostKeyPolicy.TRUST_ONCE ->
+                ssh.addHostKeyVerifier(PromiscuousVerifier())
+                    .let { null }
+            HostKeyPolicy.STRICT ->
+                ssh.addHostKeyVerifier(
+                    RejectingKnownHostsVerifier(ensureKnownHostsFile(request.knownHostsPath)),
+                ).let { null }
             HostKeyPolicy.UPDATE_KNOWN_HOSTS -> {
-                val verifier = UpdatingKnownHostsVerifier(ensureFileExists(request.knownHostsPath))
+                val verifier = UpdatingKnownHostsVerifier(ensureKnownHostsFile(request.knownHostsPath))
                 ssh.addHostKeyVerifier(verifier)
                 verifier
             }
         }
-    }
-
-    private fun ensureFileExists(path: String): File {
-        val file = File(path)
-        file.parentFile?.mkdirs()
-        if (!file.exists()) file.createNewFile()
-        return file
     }
 }
 
@@ -182,23 +181,36 @@ private fun RemoteResourceInfo.toRemoteEntry(): RemoteEntry {
         path = path,
         isDirectory = isDirectory,
         sizeBytes = attributes.size,
-        modifiedEpochSec = attributes.mtime
+        modifiedEpochSec = attributes.mtime,
     )
 }
 
 private class RejectingKnownHostsVerifier(knownHosts: File) : OpenSSHKnownHosts(knownHosts) {
-    override fun hostKeyChangedAction(hostname: String?, key: java.security.PublicKey?): Boolean = false
+    override fun hostKeyChangedAction(
+        hostname: String?,
+        key: java.security.PublicKey?,
+    ): Boolean = false
 }
 
 private class UpdatingKnownHostsVerifier(knownHosts: File) : OpenSSHKnownHosts(knownHosts) {
     private var acceptedHost: String? = null
     private var acceptedKey: PublicKey? = null
 
-    override fun hostKeyUnverifiableAction(hostname: String?, key: java.security.PublicKey?): Boolean = true
+    override fun hostKeyUnverifiableAction(
+        hostname: String?,
+        key: java.security.PublicKey?,
+    ): Boolean = true
 
-    override fun hostKeyChangedAction(hostname: String?, key: java.security.PublicKey?): Boolean = false
+    override fun hostKeyChangedAction(
+        hostname: String?,
+        key: java.security.PublicKey?,
+    ): Boolean = false
 
-    override fun verify(hostname: String?, port: Int, key: PublicKey?): Boolean {
+    override fun verify(
+        hostname: String?,
+        port: Int,
+        key: PublicKey?,
+    ): Boolean {
         val verified = super.verify(hostname, port, key)
         if (verified && hostname != null && key != null) {
             acceptedHost = hostname
@@ -211,27 +223,6 @@ private class UpdatingKnownHostsVerifier(knownHosts: File) : OpenSSHKnownHosts(k
         val host = acceptedHost ?: return
         val key = acceptedKey ?: return
         upsertKnownHostEntry(khFile, host, key)
-    }
-
-    private fun upsertKnownHostEntry(knownHostsFile: File, hostToken: String, key: PublicKey) {
-        val keyType = KeyType.fromKey(key).toString()
-        if (keyType == KeyType.UNKNOWN.toString()) return
-
-        val keyBlob = Buffer.PlainBuffer().putPublicKey(key).compactData
-        val keyBase64 = Base64.getEncoder().encodeToString(keyBlob)
-        val newLine = "$hostToken $keyType $keyBase64"
-
-        val existingLines = if (knownHostsFile.exists()) knownHostsFile.readLines() else emptyList()
-        val updatedLines = existingLines.filterNot { line ->
-            val trimmed = line.trim()
-            if (trimmed.isEmpty() || trimmed.startsWith("#")) return@filterNot false
-            val parts = trimmed.split(Regex("\\s+"), limit = 3)
-            if (parts.size < 2) return@filterNot false
-            val hosts = parts[0].split(',')
-            hosts.contains(hostToken) && parts[1] == keyType
-        } + newLine
-
-        knownHostsFile.writeText(updatedLines.joinToString(separator = "\n", postfix = "\n"))
     }
 }
 

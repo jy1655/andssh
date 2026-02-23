@@ -58,10 +58,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.documentfile.provider.DocumentFile
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.opencode.sshterminal.R
 import com.opencode.sshterminal.sftp.RemoteEntry
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -71,281 +73,435 @@ import java.util.Locale
 @Composable
 fun SftpBrowserScreen(
     onBack: () -> Unit,
-    viewModel: SftpBrowserViewModel = hiltViewModel()
+    viewModel: SftpBrowserViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
-    val context = LocalContext.current
-
     var showMkdirDialog by remember { mutableStateOf(false) }
     var renameTarget by remember { mutableStateOf<RemoteEntry?>(null) }
     var deleteTarget by remember { mutableStateOf<RemoteEntry?>(null) }
     var contextMenuEntry by remember { mutableStateOf<RemoteEntry?>(null) }
-    var pendingDownloadPath by remember { mutableStateOf("") }
-
-    val downloadLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument("application/octet-stream")
-    ) { uri: Uri? ->
-        if (uri != null && pendingDownloadPath.isNotEmpty()) {
-            viewModel.downloadToStream(pendingDownloadPath, uri)
-        }
-        pendingDownloadPath = ""
-    }
-
-    val uploadLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            val docFile = DocumentFile.fromSingleUri(context, uri)
-            val fileName = docFile?.name ?: "upload_${System.currentTimeMillis()}"
-            viewModel.uploadFromUri(uri, fileName)
-        }
-    }
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("SFTP Browser") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    IconButton(onClick = { uploadLauncher.launch("*/*") }) {
-                        Icon(Icons.Default.CloudUpload, contentDescription = "Upload")
-                    }
-                    if (state.busy) {
-                        CircularProgressIndicator(
-                            modifier = Modifier
-                                .size(24.dp)
-                                .padding(end = 4.dp),
-                            strokeWidth = 2.dp
-                        )
-                    }
-                }
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { showMkdirDialog = true }) {
-                Icon(Icons.Default.CreateNewFolder, contentDescription = "New Folder")
-            }
-        }
-    ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            Breadcrumbs(
-                path = state.remotePath,
-                onNavigate = { viewModel.navigateTo(it) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 4.dp)
-            )
-
-            AnimatedVisibility(
-                visible = state.transferProgress >= 0f,
-                enter = fadeIn(),
-                exit = fadeOut()
-            ) {
-                LinearProgressIndicator(
-                    progress = { state.transferProgress.coerceIn(0f, 1f) },
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
-            HorizontalDivider()
-
-            AnimatedVisibility(
-                visible = state.status.isNotBlank(),
-                enter = fadeIn(),
-                exit = fadeOut()
-            ) {
-                Text(
-                    text = state.status,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
-                )
-            }
-
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(1.dp)
-            ) {
-                items(state.entries, key = { it.path }) { entry ->
-                    Box {
-                        FileEntryRow(
-                            entry = entry,
-                            onClick = {
-                                if (entry.isDirectory) {
-                                    viewModel.navigateTo(entry.path)
-                                }
-                            },
-                            onLongClick = {
-                                contextMenuEntry = entry
-                            }
-                        )
-
-                        DropdownMenu(
-                            expanded = contextMenuEntry == entry,
-                            onDismissRequest = { contextMenuEntry = null }
-                        ) {
-                            if (entry.isDirectory) {
-                                DropdownMenuItem(
-                                    text = { Text("Open") },
-                                    leadingIcon = {
-                                        Icon(Icons.Default.FolderOpen, contentDescription = null)
-                                    },
-                                    onClick = {
-                                        contextMenuEntry = null
-                                        viewModel.navigateTo(entry.path)
-                                    }
-                                )
-                            } else {
-                                DropdownMenuItem(
-                                    text = { Text("Download") },
-                                    leadingIcon = {
-                                        Icon(Icons.Default.CloudDownload, contentDescription = null)
-                                    },
-                                    onClick = {
-                                        contextMenuEntry = null
-                                        pendingDownloadPath = entry.path
-                                        downloadLauncher.launch(entry.name)
-                                    }
-                                )
-                            }
-                            DropdownMenuItem(
-                                text = { Text("Rename") },
-                                leadingIcon = {
-                                    Icon(Icons.Default.DriveFileRenameOutline, contentDescription = null)
-                                },
-                                onClick = {
-                                    contextMenuEntry = null
-                                    renameTarget = entry
-                                }
-                            )
-                            DropdownMenuItem(
-                                text = { Text("Delete") },
-                                leadingIcon = {
-                                    Icon(
-                                        Icons.Default.Delete,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.error
-                                    )
-                                },
-                                onClick = {
-                                    contextMenuEntry = null
-                                    deleteTarget = entry
-                                }
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    if (showMkdirDialog) {
-        InputDialog(
-            title = "New Folder",
-            placeholder = "Folder name",
-            confirmLabel = "Create",
-            onConfirm = { name ->
+    val launchers = rememberSftpLaunchers(viewModel::downloadToStream, viewModel::uploadFromUri)
+    val menuCallbacks =
+        SftpMenuCallbacks(
+            onNavigate = viewModel::navigateTo,
+            onDownload = { entry ->
+                contextMenuEntry = null
+                launchers.launchDownload(entry.path, entry.name)
+            },
+            onRename = { entry ->
+                contextMenuEntry = null
+                renameTarget = entry
+            },
+            onDelete = { entry ->
+                contextMenuEntry = null
+                deleteTarget = entry
+            },
+        )
+    val dialogState = SftpDialogState(showMkdirDialog, renameTarget, deleteTarget)
+    val dialogCallbacks =
+        SftpDialogCallbacks(
+            onDismissMkdir = { showMkdirDialog = false },
+            onDismissRename = { renameTarget = null },
+            onDismissDelete = { deleteTarget = null },
+            onMkdir = { name ->
                 showMkdirDialog = false
                 if (name.isNotBlank()) viewModel.mkdir(name)
             },
-            onDismiss = { showMkdirDialog = false }
-        )
-    }
-
-    renameTarget?.let { entry ->
-        InputDialog(
-            title = "Rename",
-            placeholder = "New name",
-            initialValue = entry.name,
-            confirmLabel = "Rename",
-            onConfirm = { newName ->
+            onRename = { oldPath, newName ->
                 renameTarget = null
-                if (newName.isNotBlank() && newName != entry.name) {
-                    viewModel.rename(entry.path, newName)
-                }
+                if (newName.isNotBlank()) viewModel.rename(oldPath, newName)
             },
-            onDismiss = { renameTarget = null }
+            onDelete = { path ->
+                deleteTarget = null
+                viewModel.rm(path)
+            },
         )
-    }
+    SftpBrowserScaffold(
+        state = state,
+        contextMenuEntry = contextMenuEntry,
+        onContextMenuEntryChange = { contextMenuEntry = it },
+        menuCallbacks = menuCallbacks,
+        scaffoldCallbacks = SftpScaffoldCallbacks(onBack, launchers.launchUploadPicker, { showMkdirDialog = true }),
+    )
+    SftpDialogs(state = dialogState, callbacks = dialogCallbacks)
+}
 
-    deleteTarget?.let { entry ->
-        AlertDialog(
-            onDismissRequest = { deleteTarget = null },
-            title = { Text("Delete") },
-            text = { Text("Delete \"${entry.name}\"?") },
-            confirmButton = {
-                TextButton(onClick = {
-                    deleteTarget = null
-                    viewModel.rm(entry.path)
-                }) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { deleteTarget = null }) {
-                    Text("Cancel")
-                }
+private data class SftpScaffoldCallbacks(
+    val onBack: () -> Unit,
+    val onUpload: () -> Unit,
+    val onShowMkdirDialog: () -> Unit,
+)
+
+@Composable
+private fun SftpBrowserScaffold(
+    state: SftpUiState,
+    contextMenuEntry: RemoteEntry?,
+    onContextMenuEntryChange: (RemoteEntry?) -> Unit,
+    menuCallbacks: SftpMenuCallbacks,
+    scaffoldCallbacks: SftpScaffoldCallbacks,
+) {
+    Scaffold(
+        topBar = {
+            SftpTopBar(
+                busy = state.busy,
+                onBack = scaffoldCallbacks.onBack,
+                onUpload = scaffoldCallbacks.onUpload,
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(onClick = scaffoldCallbacks.onShowMkdirDialog) {
+                Icon(
+                    Icons.Default.CreateNewFolder,
+                    contentDescription = stringResource(R.string.sftp_new_folder),
+                )
             }
+        },
+    ) { padding ->
+        SftpBrowserBody(
+            state = state,
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+            contextMenuEntry = contextMenuEntry,
+            onContextMenuEntryChange = onContextMenuEntryChange,
+            menuCallbacks = menuCallbacks,
         )
     }
 }
 
-// ---------- Reusable input dialog ----------
+private data class SftpLaunchers(
+    val launchDownload: (remotePath: String, suggestedName: String) -> Unit,
+    val launchUploadPicker: () -> Unit,
+)
+
+@Composable
+private fun rememberSftpLaunchers(
+    onDownloadToStream: (remotePath: String, uri: Uri) -> Unit,
+    onUploadFromUri: (uri: Uri, remoteName: String) -> Unit,
+): SftpLaunchers {
+    val context = LocalContext.current
+    var pendingDownloadPath by remember { mutableStateOf("") }
+
+    val downloadLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.CreateDocument("application/octet-stream"),
+        ) { uri: Uri? ->
+            if (uri != null && pendingDownloadPath.isNotEmpty()) {
+                onDownloadToStream(pendingDownloadPath, uri)
+            }
+            pendingDownloadPath = ""
+        }
+
+    val uploadLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.GetContent(),
+        ) { uri: Uri? ->
+            if (uri != null) {
+                val docFile = DocumentFile.fromSingleUri(context, uri)
+                val fileName = docFile?.name ?: "upload_${System.currentTimeMillis()}"
+                onUploadFromUri(uri, fileName)
+            }
+        }
+
+    return SftpLaunchers(
+        launchDownload = { remotePath, suggestedName ->
+            pendingDownloadPath = remotePath
+            downloadLauncher.launch(suggestedName)
+        },
+        launchUploadPicker = {
+            uploadLauncher.launch("*/*")
+        },
+    )
+}
+
+private data class SftpMenuCallbacks(
+    val onNavigate: (String) -> Unit,
+    val onDownload: (RemoteEntry) -> Unit,
+    val onRename: (RemoteEntry) -> Unit,
+    val onDelete: (RemoteEntry) -> Unit,
+)
+
+private data class SftpDialogState(
+    val showMkdirDialog: Boolean,
+    val renameTarget: RemoteEntry?,
+    val deleteTarget: RemoteEntry?,
+)
+
+private data class SftpDialogCallbacks(
+    val onDismissMkdir: () -> Unit,
+    val onDismissRename: () -> Unit,
+    val onDismissDelete: () -> Unit,
+    val onMkdir: (name: String) -> Unit,
+    val onRename: (oldPath: String, newName: String) -> Unit,
+    val onDelete: (remotePath: String) -> Unit,
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun SftpTopBar(
+    busy: Boolean,
+    onBack: () -> Unit,
+    onUpload: () -> Unit,
+) {
+    TopAppBar(
+        title = { Text(stringResource(R.string.sftp_browser_title)) },
+        navigationIcon = {
+            IconButton(onClick = onBack) {
+                Icon(
+                    Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = stringResource(R.string.sftp_back),
+                )
+            }
+        },
+        actions = {
+            IconButton(onClick = onUpload) {
+                Icon(
+                    Icons.Default.CloudUpload,
+                    contentDescription = stringResource(R.string.sftp_upload),
+                )
+            }
+            if (busy) {
+                CircularProgressIndicator(
+                    modifier =
+                        Modifier
+                            .size(24.dp)
+                            .padding(end = 4.dp),
+                    strokeWidth = 2.dp,
+                )
+            }
+        },
+    )
+}
+
+@Composable
+private fun SftpBrowserBody(
+    state: SftpUiState,
+    modifier: Modifier = Modifier,
+    contextMenuEntry: RemoteEntry?,
+    onContextMenuEntryChange: (RemoteEntry?) -> Unit,
+    menuCallbacks: SftpMenuCallbacks,
+) {
+    Column(modifier = modifier) {
+        Breadcrumbs(
+            path = state.remotePath,
+            onNavigate = menuCallbacks.onNavigate,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 4.dp),
+        )
+
+        AnimatedVisibility(
+            visible = state.transferProgress >= 0f,
+            enter = fadeIn(),
+            exit = fadeOut(),
+        ) {
+            LinearProgressIndicator(
+                progress = { state.transferProgress.coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+
+        HorizontalDivider()
+
+        AnimatedVisibility(
+            visible = state.status.isNotBlank(),
+            enter = fadeIn(),
+            exit = fadeOut(),
+        ) {
+            Text(
+                text = state.status,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+        }
+
+        SftpEntryList(
+            entries = state.entries,
+            contextMenuEntry = contextMenuEntry,
+            onContextMenuEntryChange = onContextMenuEntryChange,
+            menuCallbacks = menuCallbacks,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+        )
+    }
+}
+
+@Composable
+private fun SftpEntryList(
+    entries: List<RemoteEntry>,
+    contextMenuEntry: RemoteEntry?,
+    onContextMenuEntryChange: (RemoteEntry?) -> Unit,
+    menuCallbacks: SftpMenuCallbacks,
+    modifier: Modifier = Modifier,
+) {
+    LazyColumn(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(1.dp),
+    ) {
+        items(entries, key = { it.path }) { entry ->
+            Box {
+                FileEntryRow(
+                    entry = entry,
+                    onClick = { if (entry.isDirectory) menuCallbacks.onNavigate(entry.path) },
+                    onLongClick = { onContextMenuEntryChange(entry) },
+                )
+                DropdownMenu(
+                    expanded = contextMenuEntry == entry,
+                    onDismissRequest = { onContextMenuEntryChange(null) },
+                ) {
+                    if (entry.isDirectory) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.sftp_open)) },
+                            leadingIcon = {
+                                Icon(Icons.Default.FolderOpen, contentDescription = null)
+                            },
+                            onClick = {
+                                onContextMenuEntryChange(null)
+                                menuCallbacks.onNavigate(entry.path)
+                            },
+                        )
+                    } else {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.sftp_download)) },
+                            leadingIcon = {
+                                Icon(Icons.Default.CloudDownload, contentDescription = null)
+                            },
+                            onClick = { menuCallbacks.onDownload(entry) },
+                        )
+                    }
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.sftp_rename)) },
+                        leadingIcon = { Icon(Icons.Default.DriveFileRenameOutline, contentDescription = null) },
+                        onClick = { menuCallbacks.onRename(entry) },
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.sftp_delete)) },
+                        leadingIcon = {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.error,
+                            )
+                        },
+                        onClick = { menuCallbacks.onDelete(entry) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SftpDialogs(
+    state: SftpDialogState,
+    callbacks: SftpDialogCallbacks,
+) {
+    if (state.showMkdirDialog) {
+        InputDialog(
+            dialogState =
+                InputDialogState(
+                    title = stringResource(R.string.sftp_new_folder),
+                    placeholder = stringResource(R.string.sftp_folder_name_placeholder),
+                    confirmLabel = stringResource(R.string.sftp_create),
+                    onConfirm = callbacks.onMkdir,
+                ),
+            onDismiss = callbacks.onDismissMkdir,
+        )
+    }
+
+    state.renameTarget?.let { entry ->
+        InputDialog(
+            dialogState =
+                InputDialogState(
+                    title = stringResource(R.string.sftp_rename),
+                    placeholder = stringResource(R.string.sftp_new_name_placeholder),
+                    initialValue = entry.name,
+                    confirmLabel = stringResource(R.string.sftp_rename),
+                    onConfirm = { newName ->
+                        if (newName != entry.name) {
+                            callbacks.onRename(entry.path, newName)
+                        } else {
+                            callbacks.onDismissRename()
+                        }
+                    },
+                ),
+            onDismiss = callbacks.onDismissRename,
+        )
+    }
+
+    state.deleteTarget?.let { entry ->
+        AlertDialog(
+            onDismissRequest = callbacks.onDismissDelete,
+            title = { Text(stringResource(R.string.sftp_delete)) },
+            text = { Text(stringResource(R.string.sftp_delete_entry_message, entry.name)) },
+            confirmButton = {
+                TextButton(onClick = { callbacks.onDelete(entry.path) }) {
+                    Text(
+                        stringResource(R.string.common_delete),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = callbacks.onDismissDelete) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
+        )
+    }
+}
+
+private data class InputDialogState(
+    val title: String,
+    val placeholder: String,
+    val confirmLabel: String,
+    val initialValue: String = "",
+    val onConfirm: (String) -> Unit,
+)
 
 @Composable
 private fun InputDialog(
-    title: String,
-    placeholder: String,
-    initialValue: String = "",
-    confirmLabel: String,
-    onConfirm: (String) -> Unit,
-    onDismiss: () -> Unit
+    dialogState: InputDialogState,
+    onDismiss: () -> Unit,
 ) {
-    var text by remember { mutableStateOf(initialValue) }
+    var text by remember(dialogState.initialValue) { mutableStateOf(dialogState.initialValue) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
+        title = { Text(dialogState.title) },
         text = {
             OutlinedTextField(
                 value = text,
                 onValueChange = { text = it },
                 singleLine = true,
-                placeholder = { Text(placeholder) },
-                modifier = Modifier.fillMaxWidth()
+                placeholder = { Text(dialogState.placeholder) },
+                modifier = Modifier.fillMaxWidth(),
             )
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(text) }) { Text(confirmLabel) }
+            TextButton(onClick = { dialogState.onConfirm(text) }) { Text(dialogState.confirmLabel) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.common_cancel)) }
+        },
     )
 }
-
-// ---------- Breadcrumbs ----------
 
 @Composable
 private fun Breadcrumbs(
     path: String,
     onNavigate: (String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val segments = path.split("/").filter { it.isNotEmpty() }
 
     LazyRow(
         modifier = modifier,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         item {
             TextButton(onClick = { onNavigate("/") }) {
@@ -357,7 +513,7 @@ private fun Breadcrumbs(
                 Icons.AutoMirrored.Filled.NavigateNext,
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             val fullPath = "/" + segments.take(index + 1).joinToString("/")
             TextButton(onClick = { onNavigate(fullPath) }) {
@@ -367,31 +523,34 @@ private fun Breadcrumbs(
     }
 }
 
-// ---------- File entry row ----------
-
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun FileEntryRow(
     entry: RemoteEntry,
     onClick: () -> Unit,
-    onLongClick: () -> Unit
+    onLongClick: () -> Unit,
 ) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick
-            )
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .combinedClickable(
+                    onClick = onClick,
+                    onLongClick = onLongClick,
+                )
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(
             imageVector = if (entry.isDirectory) Icons.Default.Folder else Icons.Default.Description,
             contentDescription = null,
-            tint = if (entry.isDirectory) MaterialTheme.colorScheme.primary
-                   else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.size(24.dp)
+            tint =
+                if (entry.isDirectory) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                },
+            modifier = Modifier.size(24.dp),
         )
 
         Spacer(modifier = Modifier.width(12.dp))
@@ -401,21 +560,21 @@ private fun FileEntryRow(
                 text = entry.name,
                 style = MaterialTheme.typography.bodyMedium,
                 maxLines = 1,
-                overflow = TextOverflow.Ellipsis
+                overflow = TextOverflow.Ellipsis,
             )
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (!entry.isDirectory) {
                     Text(
                         text = formatFileSize(entry.sizeBytes),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 if (entry.modifiedEpochSec > 0) {
                     Text(
-                        text = formatDate(entry.modifiedEpochSec),
+                        text = dateFormat.format(Date(entry.modifiedEpochSec * 1000)),
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -424,23 +583,12 @@ private fun FileEntryRow(
         if (!entry.isDirectory) {
             Icon(
                 Icons.Default.CloudDownload,
-                contentDescription = "Download",
+                contentDescription = stringResource(R.string.sftp_download_icon_description),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(20.dp),
             )
         }
     }
 }
 
-// ---------- Utilities ----------
-
-private fun formatFileSize(bytes: Long): String = when {
-    bytes < 1024 -> "$bytes B"
-    bytes < 1024 * 1024 -> "${bytes / 1024} KB"
-    bytes < 1024 * 1024 * 1024 -> "${"%.1f".format(bytes / (1024.0 * 1024.0))} MB"
-    else -> "${"%.1f".format(bytes / (1024.0 * 1024.0 * 1024.0))} GB"
-}
-
 private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
-
-private fun formatDate(epochSec: Long): String = dateFormat.format(Date(epochSec * 1000))

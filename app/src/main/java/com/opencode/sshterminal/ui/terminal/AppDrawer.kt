@@ -20,7 +20,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import com.opencode.sshterminal.R
 import kotlinx.coroutines.launch
 
 @Composable
@@ -29,7 +31,7 @@ fun AppDrawer(
     connectionInfo: String,
     onTerminal: () -> Unit,
     onSftp: () -> Unit,
-    onDisconnect: () -> Unit
+    onDisconnect: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     val close: (() -> Unit) -> Unit = { action ->
@@ -42,15 +44,15 @@ fun AppDrawer(
     ModalDrawerSheet {
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
-                text = "SSH Terminal",
+                text = stringResource(R.string.app_name),
                 style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.primary,
             )
             if (connectionInfo.isNotBlank()) {
                 Text(
                     text = connectionInfo,
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
         }
@@ -60,18 +62,18 @@ fun AppDrawer(
 
         NavigationDrawerItem(
             icon = { Icon(Icons.Default.Terminal, contentDescription = null) },
-            label = { Text("Terminal") },
+            label = { Text(stringResource(R.string.drawer_terminal)) },
             selected = true,
             onClick = { close(onTerminal) },
-            modifier = Modifier.fillMaxWidth().padding(NavigationDrawerItemDefaults.ItemPadding)
+            modifier = Modifier.fillMaxWidth().padding(NavigationDrawerItemDefaults.ItemPadding),
         )
 
         NavigationDrawerItem(
             icon = { Icon(Icons.Default.Folder, contentDescription = null) },
-            label = { Text("SFTP Browser") },
+            label = { Text(stringResource(R.string.drawer_sftp_browser)) },
             selected = false,
             onClick = { close(onSftp) },
-            modifier = Modifier.fillMaxWidth().padding(NavigationDrawerItemDefaults.ItemPadding)
+            modifier = Modifier.fillMaxWidth().padding(NavigationDrawerItemDefaults.ItemPadding),
         )
 
         Spacer(modifier = Modifier.weight(1f))
@@ -79,10 +81,10 @@ fun AppDrawer(
 
         NavigationDrawerItem(
             icon = { Icon(Icons.AutoMirrored.Filled.ExitToApp, contentDescription = null) },
-            label = { Text("Disconnect Tab") },
+            label = { Text(stringResource(R.string.drawer_disconnect_tab)) },
             selected = false,
             onClick = { close(onDisconnect) },
-            modifier = Modifier.fillMaxWidth().padding(NavigationDrawerItemDefaults.ItemPadding)
+            modifier = Modifier.fillMaxWidth().padding(NavigationDrawerItemDefaults.ItemPadding),
         )
         Spacer(modifier = Modifier.height(16.dp))
     }

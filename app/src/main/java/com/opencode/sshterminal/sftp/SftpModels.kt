@@ -5,5 +5,5 @@ data class RemoteEntry(
     val path: String,
     val isDirectory: Boolean,
     val sizeBytes: Long,
-    val modifiedEpochSec: Long
+    val modifiedEpochSec: Long,
 )

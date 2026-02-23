@@ -25,6 +25,17 @@ Android native SSH terminal app scaffold focused on TTY-based remote CLI workflo
 
 SSH 터미널 + SFTP 파일 관리가 동작하는 상태. `sshj` 기반.
 
+## Code convention
+
+- Team convention: `docs/code-convention.md`
+- Editor baseline: `.editorconfig`
+
+Recent refactor baseline:
+
+- `ConnectionProfile -> ConnectRequest` 생성 경로를 공용 팩토리로 통일
+- SSH/SFTP의 `sshj` 인증 로직을 공용 함수로 통일
+- `known_hosts` 파일 생성/업데이트 로직을 공용 유틸로 통일
+
 ## Build & test (CLI, WSL 기준)
 
 This repository now includes Gradle Wrapper (`gradlew`).
@@ -50,7 +61,13 @@ export PATH="$JAVA_HOME/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH"
 ./gradlew --no-daemon testDebugUnitTest
 ```
 
-4. (Optional) Run connected Android tests:
+4. Run style/quality checks:
+
+```bash
+./gradlew --no-daemon ktlintCheck detekt
+```
+
+5. (Optional) Run connected Android tests:
 
 ```bash
 ./gradlew --no-daemon connectedDebugAndroidTest
@@ -59,6 +76,10 @@ export PATH="$JAVA_HOME/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH"
 Output APK path:
 
 - `app/build/outputs/apk/debug/app-debug.apk`
+
+Detekt baseline path:
+
+- `app/detekt-baseline.xml`
 
 ## Run on Android device
 

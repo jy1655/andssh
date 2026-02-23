@@ -10,7 +10,7 @@ enum class SessionState {
     CONNECTED,
     RECONNECTING,
     DISCONNECTED,
-    FAILED
+    FAILED,
 }
 
 data class SessionSnapshot(
@@ -20,14 +20,14 @@ data class SessionSnapshot(
     val port: Int,
     val username: String,
     val error: String? = null,
-    val hostKeyAlert: HostKeyAlert? = null
+    val hostKeyAlert: HostKeyAlert? = null,
 )
 
 data class HostKeyAlert(
     val host: String,
     val port: Int,
     val fingerprint: String,
-    val message: String
+    val message: String,
 )
 
 data class ConnectRequest(
@@ -41,11 +41,11 @@ data class ConnectRequest(
     val hostKeyPolicy: HostKeyPolicy = HostKeyPolicy.STRICT,
     val termType: String = "xterm-256color",
     val cols: Int,
-    val rows: Int
+    val rows: Int,
 )
 
 enum class HostKeyPolicy {
     STRICT,
     TRUST_ONCE,
-    UPDATE_KNOWN_HOSTS
+    UPDATE_KNOWN_HOSTS,
 }

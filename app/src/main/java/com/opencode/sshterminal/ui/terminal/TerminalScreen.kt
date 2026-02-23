@@ -6,6 +6,7 @@ import android.content.Context
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -14,9 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -50,10 +49,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.opencode.sshterminal.R
+import com.opencode.sshterminal.data.ConnectionProfile
+import com.opencode.sshterminal.session.HostKeyAlert
+import com.opencode.sshterminal.session.SessionSnapshot
 import com.opencode.sshterminal.session.SessionState
+import com.opencode.sshterminal.session.TabId
+import com.opencode.sshterminal.session.TabInfo
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -61,19 +67,17 @@ import kotlinx.coroutines.launch
 fun TerminalScreen(
     onNavigateToSftp: (connectionId: String) -> Unit,
     onAllTabsClosed: () -> Unit,
-    viewModel: TerminalViewModel = hiltViewModel()
+    viewModel: TerminalViewModel = hiltViewModel(),
 ) {
-    val context = LocalContext.current
     val tabs by viewModel.tabs.collectAsState()
     val activeTabId by viewModel.activeTabId.collectAsState()
     val activeSnapshot by viewModel.activeSnapshot.collectAsState()
     val profiles by viewModel.profiles.collectAsState()
-    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
-    val scope = rememberCoroutineScope()
     var hadTabs by remember { mutableStateOf(false) }
     var showConnectionPicker by remember { mutableStateOf(false) }
     var pageUpCount by remember { mutableStateOf(0) }
     var pageDownCount by remember { mutableStateOf(0) }
+    val clipboardLabel = stringResource(R.string.terminal_clipboard_label)
 
     LaunchedEffect(tabs) {
         if (tabs.isNotEmpty()) hadTabs = true
@@ -81,206 +85,429 @@ fun TerminalScreen(
     }
 
     val activeTab = tabs.find { it.tabId == activeTabId }
-    val connectionInfo = activeSnapshot?.let { snap ->
-        if (snap.host.isNotBlank()) "${snap.username}@${snap.host}:${snap.port}" else ""
-    } ?: ""
+    val screenModel =
+        TerminalScreenModel(
+            tabs = tabs,
+            activeTabId = activeTabId,
+            activeSnapshot = activeSnapshot,
+            activeConnectionId = activeTab?.connectionId,
+            connectionInfo = activeSnapshot.toConnectionInfo(),
+        )
+    val screenCallbacks =
+        TerminalScreenCallbacks(
+            onNavigateToSftp = onNavigateToSftp,
+            onShowConnectionPicker = { showConnectionPicker = true },
+            onPageScroll = { direction -> if (direction > 0) pageUpCount++ else pageDownCount++ },
+        )
+    val dialogState =
+        TerminalDialogsState(
+            showConnectionPicker = showConnectionPicker,
+            profiles = profiles,
+            hostKeyAlert = activeSnapshot?.hostKeyAlert,
+        )
+    val dialogCallbacks =
+        TerminalDialogsCallbacks(
+            onDismissConnectionPicker = { showConnectionPicker = false },
+            onSelectProfile = { profile ->
+                showConnectionPicker = false
+                viewModel.openTab(profile.id)
+            },
+            onRejectHostKey = viewModel::dismissHostKeyAlert,
+            onTrustHostKeyOnce = viewModel::trustHostKeyOnce,
+            onUpdateKnownHosts = viewModel::updateKnownHostsAndReconnect,
+        )
+
+    TerminalScaffold(
+        viewModel = viewModel,
+        model = screenModel,
+        callbacks = screenCallbacks,
+        scrollCounters = TerminalScrollCounters(pageUpCount = pageUpCount, pageDownCount = pageDownCount),
+        clipboardLabel = clipboardLabel,
+    )
+
+    TerminalScreenDialogs(state = dialogState, callbacks = dialogCallbacks)
+}
+
+private data class TerminalScreenModel(
+    val tabs: List<TabInfo>,
+    val activeTabId: TabId?,
+    val activeSnapshot: SessionSnapshot?,
+    val activeConnectionId: String?,
+    val connectionInfo: String,
+)
+
+private data class TerminalScreenCallbacks(
+    val onNavigateToSftp: (connectionId: String) -> Unit,
+    val onShowConnectionPicker: () -> Unit,
+    val onPageScroll: (Int) -> Unit,
+)
+
+private data class TerminalMainCallbacks(
+    val onOpenDrawer: () -> Unit,
+    val onShowConnectionPicker: () -> Unit,
+    val onPageScroll: (Int) -> Unit,
+    val onCopyText: (String) -> Unit,
+)
+
+private data class TerminalDialogsState(
+    val showConnectionPicker: Boolean,
+    val profiles: List<ConnectionProfile>,
+    val hostKeyAlert: HostKeyAlert?,
+)
+
+private data class TerminalDialogsCallbacks(
+    val onDismissConnectionPicker: () -> Unit,
+    val onSelectProfile: (ConnectionProfile) -> Unit,
+    val onRejectHostKey: () -> Unit,
+    val onTrustHostKeyOnce: () -> Unit,
+    val onUpdateKnownHosts: () -> Unit,
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TerminalScaffold(
+    viewModel: TerminalViewModel,
+    model: TerminalScreenModel,
+    callbacks: TerminalScreenCallbacks,
+    scrollCounters: TerminalScrollCounters,
+    clipboardLabel: String,
+) {
+    val context = LocalContext.current
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
 
     ModalNavigationDrawer(
         drawerState = drawerState,
         drawerContent = {
             AppDrawer(
                 drawerState = drawerState,
-                connectionInfo = connectionInfo,
+                connectionInfo = model.connectionInfo,
                 onTerminal = { },
-                onSftp = {
-                    activeTab?.connectionId?.let { onNavigateToSftp(it) }
-                },
-                onDisconnect = { viewModel.disconnectActiveTab() }
+                onSftp = { model.activeConnectionId?.let(callbacks.onNavigateToSftp) },
+                onDisconnect = { viewModel.disconnectActiveTab() },
             )
-        }
+        },
     ) {
-        Column(
-            modifier = Modifier
+        TerminalMainColumn(
+            viewModel = viewModel,
+            model = model,
+            scrollCounters = scrollCounters,
+            callbacks =
+                TerminalMainCallbacks(
+                    onOpenDrawer = { scope.launch { drawerState.open() } },
+                    onShowConnectionPicker = callbacks.onShowConnectionPicker,
+                    onPageScroll = callbacks.onPageScroll,
+                    onCopyText = { text ->
+                        val clipboard =
+                            context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                        clipboard.setPrimaryClip(ClipData.newPlainText(clipboardLabel, text))
+                    },
+                ),
+        )
+    }
+}
+
+@Composable
+private fun TerminalMainColumn(
+    viewModel: TerminalViewModel,
+    model: TerminalScreenModel,
+    scrollCounters: TerminalScrollCounters,
+    callbacks: TerminalMainCallbacks,
+) {
+    Column(
+        modifier =
+            Modifier
                 .fillMaxSize()
                 .windowInsetsPadding(WindowInsets.statusBars)
                 .windowInsetsPadding(WindowInsets.navigationBars)
-                .imePadding()
-        ) {
-            val selectedIndex = tabs.indexOfFirst { it.tabId == activeTabId }.coerceAtLeast(0)
+                .imePadding(),
+    ) {
+        TerminalTabBar(
+            model =
+                TerminalTabBarModel(
+                    tabs = model.tabs,
+                    activeTabId = model.activeTabId,
+                    activeState = model.activeSnapshot?.state,
+                ),
+            callbacks =
+                TerminalTabBarCallbacks(
+                    onSwitchTab = viewModel::switchTab,
+                    onShowNewTab = callbacks.onShowConnectionPicker,
+                    onCloseActiveTab = { model.activeTabId?.let(viewModel::closeTab) },
+                    onDisconnect = viewModel::disconnectActiveTab,
+                ),
+        )
 
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                if (tabs.isNotEmpty()) {
-                    ScrollableTabRow(
-                        selectedTabIndex = selectedIndex,
-                        modifier = Modifier.weight(1f),
-                        edgePadding = 4.dp,
-                        divider = { }
-                    ) {
-                        tabs.forEachIndexed { _, tabInfo ->
-                            Tab(
-                                selected = tabInfo.tabId == activeTabId,
-                                onClick = { viewModel.switchTab(tabInfo.tabId) }
-                            ) {
-                                Text(
-                                    text = tabInfo.title,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = when (tabInfo.state) {
-                                        SessionState.DISCONNECTED -> MaterialTheme.colorScheme.onSurfaceVariant
-                                        SessionState.FAILED -> MaterialTheme.colorScheme.error
-                                        else -> MaterialTheme.colorScheme.onSurface
-                                    },
-                                    modifier = Modifier
-                                        .padding(horizontal = 12.dp)
-                                        .height(36.dp)
-                                )
-                            }
-                        }
-                    }
-                } else {
-                    Spacer(modifier = Modifier.weight(1f))
-                }
-
-                IconButton(onClick = { showConnectionPicker = true }) {
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = "New tab",
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-
-                if (activeTabId != null) {
-                    IconButton(onClick = { activeTabId?.let { viewModel.closeTab(it) } }) {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = "Close active tab",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-
-                if (activeSnapshot?.state == SessionState.CONNECTED) {
-                    IconButton(onClick = { viewModel.disconnectActiveTab() }) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ExitToApp,
-                            contentDescription = "Disconnect",
-                            tint = MaterialTheme.colorScheme.error
-                        )
-                    }
-                }
-            }
-
-            TerminalRenderer(
-                bridge = viewModel.bridge,
-                modifier = Modifier
+        TerminalRenderer(
+            bridge = viewModel.bridge,
+            modifier =
+                Modifier
                     .fillMaxWidth()
                     .weight(1f),
-                pageUpCount = pageUpCount,
-                pageDownCount = pageDownCount,
-                onTap = null,
-                onResize = { cols, rows -> viewModel.resize(cols, rows) },
-                onCopyText = { text ->
-                    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                    clipboard.setPrimaryClip(ClipData.newPlainText("terminal", text))
-                }
+            scrollCounters = scrollCounters,
+            callbacks =
+                TerminalRendererCallbacks(
+                    onResize = { cols, rows -> viewModel.resize(cols, rows) },
+                    onCopyText = callbacks.onCopyText,
+                ),
+        )
+
+        model.activeSnapshot?.error?.let { error ->
+            Text(
+                text = stringResource(R.string.terminal_error_format, error),
+                color = MaterialTheme.colorScheme.error,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
             )
+        }
 
-            val error = activeSnapshot?.error
-            if (error != null) {
-                Text(
-                    text = "Error: $error",
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                )
+        TerminalInputBar(
+            onSendBytes = viewModel::sendInput,
+            onMenuClick = callbacks.onOpenDrawer,
+            onPageScroll = callbacks.onPageScroll,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
+private fun TerminalScreenDialogs(
+    state: TerminalDialogsState,
+    callbacks: TerminalDialogsCallbacks,
+) {
+    if (state.showConnectionPicker) {
+        ConnectionPickerSheet(
+            profiles = state.profiles,
+            onDismiss = callbacks.onDismissConnectionPicker,
+            onSelectProfile = callbacks.onSelectProfile,
+        )
+    }
+
+    state.hostKeyAlert?.let { hostKeyAlert ->
+        HostKeyChangedDialog(
+            hostKeyAlert = hostKeyAlert,
+            onReject = callbacks.onRejectHostKey,
+            onTrustOnce = callbacks.onTrustHostKeyOnce,
+            onUpdateKnownHosts = callbacks.onUpdateKnownHosts,
+        )
+    }
+}
+
+@Composable
+private fun TerminalTabBar(
+    model: TerminalTabBarModel,
+    callbacks: TerminalTabBarCallbacks,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        TerminalTabStrip(
+            tabs = model.tabs,
+            activeTabId = model.activeTabId,
+            onSwitchTab = callbacks.onSwitchTab,
+        )
+        TerminalTabButtons(
+            activeTabId = model.activeTabId,
+            activeState = model.activeState,
+            onShowNewTab = callbacks.onShowNewTab,
+            onCloseActiveTab = callbacks.onCloseActiveTab,
+            onDisconnect = callbacks.onDisconnect,
+        )
+    }
+}
+
+@Composable
+private fun RowScope.TerminalTabStrip(
+    tabs: List<TabInfo>,
+    activeTabId: TabId?,
+    onSwitchTab: (TabId) -> Unit,
+) {
+    val selectedIndex = tabs.indexOfFirst { it.tabId == activeTabId }.coerceAtLeast(0)
+
+    if (tabs.isNotEmpty()) {
+        ScrollableTabRow(
+            selectedTabIndex = selectedIndex,
+            modifier = Modifier.weight(1f),
+            edgePadding = 4.dp,
+            divider = { },
+        ) {
+            tabs.forEach { tabInfo ->
+                Tab(
+                    selected = tabInfo.tabId == activeTabId,
+                    onClick = { onSwitchTab(tabInfo.tabId) },
+                ) {
+                    Text(
+                        text = tabInfo.title,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        style = MaterialTheme.typography.labelMedium,
+                        color =
+                            when (tabInfo.state) {
+                                SessionState.DISCONNECTED -> MaterialTheme.colorScheme.onSurfaceVariant
+                                SessionState.FAILED -> MaterialTheme.colorScheme.error
+                                else -> MaterialTheme.colorScheme.onSurface
+                            },
+                        modifier =
+                            Modifier
+                                .padding(horizontal = 12.dp)
+                                .height(36.dp),
+                    )
+                }
             }
+        }
+    } else {
+        Spacer(modifier = Modifier.weight(1f))
+    }
+}
 
-            TerminalInputBar(
-                onSendBytes = { bytes -> viewModel.sendInput(bytes) },
-                onMenuClick = { scope.launch { drawerState.open() } },
-                onPageScroll = { direction ->
-                    if (direction > 0) pageUpCount++ else pageDownCount++
-                },
-                modifier = Modifier.fillMaxWidth()
+@Composable
+private fun TerminalTabButtons(
+    activeTabId: TabId?,
+    activeState: SessionState?,
+    onShowNewTab: () -> Unit,
+    onCloseActiveTab: () -> Unit,
+    onDisconnect: () -> Unit,
+) {
+    IconButton(onClick = onShowNewTab) {
+        Icon(
+            Icons.Default.Add,
+            contentDescription = stringResource(R.string.terminal_new_tab),
+            tint = MaterialTheme.colorScheme.primary,
+        )
+    }
+
+    if (activeTabId != null) {
+        IconButton(onClick = onCloseActiveTab) {
+            Icon(
+                Icons.Default.Close,
+                contentDescription = stringResource(R.string.terminal_close_active_tab),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
     }
 
-    if (showConnectionPicker) {
-        ModalBottomSheet(
-            onDismissRequest = { showConnectionPicker = false },
-            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ) {
-            Text(
-                text = "Select Connection",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+    if (activeState == SessionState.CONNECTED) {
+        IconButton(onClick = onDisconnect) {
+            Icon(
+                Icons.AutoMirrored.Filled.ExitToApp,
+                contentDescription = stringResource(R.string.terminal_disconnect),
+                tint = MaterialTheme.colorScheme.error,
             )
-            HorizontalDivider()
-            if (profiles.isEmpty()) {
-                Text(
-                    text = "No saved connections",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(16.dp)
-                )
-            } else {
-                LazyColumn {
-                    items(profiles, key = { it.id }) { profile ->
-                        Row(
-                            modifier = Modifier
+        }
+    }
+}
+
+private data class TerminalTabBarModel(
+    val tabs: List<TabInfo>,
+    val activeTabId: TabId?,
+    val activeState: SessionState?,
+)
+
+private data class TerminalTabBarCallbacks(
+    val onSwitchTab: (TabId) -> Unit,
+    val onShowNewTab: () -> Unit,
+    val onCloseActiveTab: () -> Unit,
+    val onDisconnect: () -> Unit,
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ConnectionPickerSheet(
+    profiles: List<ConnectionProfile>,
+    onDismiss: () -> Unit,
+    onSelectProfile: (ConnectionProfile) -> Unit,
+) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+    ) {
+        Text(
+            text = stringResource(R.string.terminal_select_connection),
+            style = MaterialTheme.typography.titleMedium,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+        )
+        HorizontalDivider()
+
+        if (profiles.isEmpty()) {
+            Text(
+                text = stringResource(R.string.connection_no_saved_title),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(16.dp),
+            )
+        } else {
+            LazyColumn {
+                items(profiles, key = { it.id }) { profile ->
+                    Row(
+                        modifier =
+                            Modifier
                                 .fillMaxWidth()
-                                .clickable {
-                                    showConnectionPicker = false
-                                    viewModel.openTab(profile.id)
-                                }
+                                .clickable { onSelectProfile(profile) }
                                 .padding(horizontal = 16.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = profile.name,
-                                    style = MaterialTheme.typography.bodyLarge
-                                )
-                                Text(
-                                    text = "${profile.username}@${profile.host}:${profile.port}",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = profile.name,
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
+                            Text(
+                                text = "${profile.username}@${profile.host}:${profile.port}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(16.dp))
         }
+        Spacer(modifier = Modifier.height(16.dp))
     }
+}
 
-    val hostKeyAlert = activeSnapshot?.hostKeyAlert
-    if (hostKeyAlert != null) {
-        AlertDialog(
-            onDismissRequest = { viewModel.dismissHostKeyAlert() },
-            title = { Text("Host Key Changed") },
-            text = {
-                Text(
-                    "Host: ${hostKeyAlert.host}:${hostKeyAlert.port}\n" +
-                        "Fingerprint: ${hostKeyAlert.fingerprint}"
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = { viewModel.dismissHostKeyAlert() }) {
-                    Text("Reject")
+@Composable
+private fun HostKeyChangedDialog(
+    hostKeyAlert: HostKeyAlert,
+    onReject: () -> Unit,
+    onTrustOnce: () -> Unit,
+    onUpdateKnownHosts: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onReject,
+        title = { Text(stringResource(R.string.terminal_host_key_changed)) },
+        text = {
+            Text(
+                stringResource(
+                    R.string.terminal_host_key_message,
+                    hostKeyAlert.host,
+                    hostKeyAlert.port,
+                    hostKeyAlert.fingerprint,
+                ),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = onReject) {
+                Text(stringResource(R.string.terminal_reject))
+            }
+        },
+        dismissButton = {
+            Column {
+                TextButton(onClick = onTrustOnce) {
+                    Text(stringResource(R.string.terminal_trust_once))
                 }
-            },
-            dismissButton = {
-                Column {
-                    TextButton(onClick = { viewModel.trustHostKeyOnce() }) { Text("Trust Once") }
-                    TextButton(onClick = { viewModel.updateKnownHostsAndReconnect() }) { Text("Update known_hosts") }
+                TextButton(onClick = onUpdateKnownHosts) {
+                    Text(stringResource(R.string.terminal_update_known_hosts))
                 }
             }
-        )
+        },
+    )
+}
+
+private fun SessionSnapshot?.toConnectionInfo(): String {
+    val snapshot = this ?: return ""
+    return if (snapshot.host.isNotBlank()) {
+        "${snapshot.username}@${snapshot.host}:${snapshot.port}"
+    } else {
+        ""
     }
 }

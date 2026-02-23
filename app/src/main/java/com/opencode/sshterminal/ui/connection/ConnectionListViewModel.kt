@@ -12,18 +12,28 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class ConnectionListViewModel @Inject constructor(
-    private val repository: ConnectionRepository
-) : ViewModel() {
+class ConnectionListViewModel
+    @Inject
+    constructor(
+        private val repository: ConnectionRepository,
+    ) : ViewModel() {
+        val profiles: StateFlow<List<ConnectionProfile>> =
+            repository.profiles
+                .stateIn(
+                    viewModelScope,
+                    SharingStarted.WhileSubscribed(STATE_FLOW_TIMEOUT_MS),
+                    emptyList(),
+                )
 
-    val profiles: StateFlow<List<ConnectionProfile>> = repository.profiles
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+        fun save(profile: ConnectionProfile) {
+            viewModelScope.launch { repository.save(profile) }
+        }
 
-    fun save(profile: ConnectionProfile) {
-        viewModelScope.launch { repository.save(profile) }
+        fun delete(id: String) {
+            viewModelScope.launch { repository.delete(id) }
+        }
+
+        companion object {
+            private const val STATE_FLOW_TIMEOUT_MS = 5_000L
+        }
     }
-
-    fun delete(id: String) {
-        viewModelScope.launch { repository.delete(id) }
-    }
-}

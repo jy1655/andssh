@@ -1,9 +1,9 @@
 package com.opencode.sshterminal.app
 
 import android.app.Application
-import java.security.Security
 import dagger.hilt.android.HiltAndroidApp
 import org.bouncycastle.jce.provider.BouncyCastleProvider
+import java.security.Security
 
 @HiltAndroidApp
 class SSHTerminalApp : Application() {

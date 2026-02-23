@@ -1,10 +1,81 @@
 <resources>
     <string name="app_name">SSH Terminal</string>
+    <string name="common_cancel">Cancel</string>
+    <string name="common_delete">Delete</string>
+    <string name="common_save">Save</string>
+
     <string name="fgs_channel_name">SSH Sessions</string>
     <string name="fgs_notification_title">SSH session running</string>
     <string name="fgs_notification_body">Tap to return to terminal</string>
+
     <string name="bell_channel_name">Terminal Bell</string>
     <string name="bell_channel_description">Notifications triggered by terminal bell (BEL)</string>
     <string name="bell_notification_title">Terminal Bell</string>
     <string name="bell_notification_body">Bell received from %1$s</string>
+
+    <string name="drawer_terminal">Terminal</string>
+    <string name="drawer_sftp_browser">SFTP Browser</string>
+    <string name="drawer_disconnect_tab">Disconnect Tab</string>
+
+    <string name="connection_list_title">SSH Connections</string>
+    <string name="connection_add">Add Connection</string>
+    <string name="connection_no_saved_title">No saved connections</string>
+    <string name="connection_no_saved_subtitle">Tap + to add a new SSH connection</string>
+    <string name="connection_delete_title">Delete Connection</string>
+    <string name="connection_delete_message">Delete "%1$s"? This cannot be undone.</string>
+    <string name="connection_edit">Edit</string>
+    <string name="connection_delete">Delete</string>
+    <string name="connection_sheet_edit_title">Edit Connection</string>
+    <string name="connection_sheet_new_title">New Connection</string>
+    <string name="connection_label_name">Name</string>
+    <string name="connection_label_host">Host</string>
+    <string name="connection_label_port">Port</string>
+    <string name="connection_label_username">Username</string>
+    <string name="connection_label_password_optional">Password (Optional)</string>
+    <string name="connection_label_private_key_path">Private Key Path</string>
+
+    <string name="terminal_new_tab">New tab</string>
+    <string name="terminal_close_active_tab">Close active tab</string>
+    <string name="terminal_disconnect">Disconnect</string>
+    <string name="terminal_clipboard_label">terminal</string>
+    <string name="terminal_error_format">Error: %1$s</string>
+    <string name="terminal_select_connection">Select Connection</string>
+    <string name="terminal_copy">Copy</string>
+    <string name="terminal_host_key_changed">Host Key Changed</string>
+    <string name="terminal_host_key_message">Host: %1$s:%2$d&#10;Fingerprint: %3$s</string>
+    <string name="terminal_reject">Reject</string>
+    <string name="terminal_trust_once">Trust Once</string>
+    <string name="terminal_update_known_hosts">Update known_hosts</string>
+
+    <string name="sftp_browser_title">SFTP Browser</string>
+    <string name="sftp_back">Back</string>
+    <string name="sftp_upload">Upload</string>
+    <string name="sftp_new_folder">New Folder</string>
+    <string name="sftp_open">Open</string>
+    <string name="sftp_download">Download</string>
+    <string name="sftp_rename">Rename</string>
+    <string name="sftp_delete">Delete</string>
+    <string name="sftp_folder_name_placeholder">Folder name</string>
+    <string name="sftp_create">Create</string>
+    <string name="sftp_new_name_placeholder">New name</string>
+    <string name="sftp_delete_entry_message">Delete "%1$s"?</string>
+    <string name="sftp_download_icon_description">Download</string>
+
+    <string name="sftp_status_connecting">Connecting...</string>
+    <string name="sftp_status_downloading">Downloading...</string>
+    <string name="sftp_status_uploading">Uploading...</string>
+    <string name="sftp_status_connection_failed">Connection failed: %1$s</string>
+    <string name="sftp_status_items">%1$d items</string>
+    <string name="sftp_status_list_failed">List failed: %1$s</string>
+    <string name="sftp_status_downloaded_to">Downloaded to %1$s</string>
+    <string name="sftp_status_download_failed">Download failed: %1$s</string>
+    <string name="sftp_status_download_complete">Download complete</string>
+    <string name="sftp_status_invalid_remote_name">Invalid remote name</string>
+    <string name="sftp_status_upload_complete">Upload complete</string>
+    <string name="sftp_status_upload_failed">Upload failed: %1$s</string>
+    <string name="sftp_status_invalid_directory_name">Invalid directory name</string>
+    <string name="sftp_status_mkdir_failed">mkdir failed: %1$s</string>
+    <string name="sftp_status_delete_failed">Delete failed: %1$s</string>
+    <string name="sftp_status_invalid_new_name">Invalid new name</string>
+    <string name="sftp_status_rename_failed">Rename failed: %1$s</string>
 </resources>

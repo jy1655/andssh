@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -48,16 +49,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.opencode.sshterminal.R
 import com.opencode.sshterminal.data.ConnectionProfile
+import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ConnectionListScreen(
     onConnect: (connectionId: String) -> Unit,
-    viewModel: ConnectionListViewModel = hiltViewModel()
+    viewModel: ConnectionListViewModel = hiltViewModel(),
 ) {
     val profiles by viewModel.profiles.collectAsState()
     var editingProfile by remember { mutableStateOf<ConnectionProfile?>(null) }
@@ -66,61 +70,29 @@ fun ConnectionListScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text("SSH Connections") })
+            TopAppBar(title = { Text(stringResource(R.string.connection_list_title)) })
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { editingProfile = null; showSheet = true }) {
-                Icon(Icons.Default.Add, contentDescription = "Add Connection")
+            FloatingActionButton(
+                onClick = {
+                    editingProfile = null
+                    showSheet = true
+                },
+            ) {
+                Icon(Icons.Default.Add, contentDescription = stringResource(R.string.connection_add))
             }
-        }
+        },
     ) { padding ->
-        if (profiles.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(
-                        Icons.Default.Terminal,
-                        contentDescription = null,
-                        modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
-                    )
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        "No saved connections",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "Tap + to add a new SSH connection",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
-                    )
-                }
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(horizontal = 16.dp)
-                    .padding(top = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                items(profiles, key = { it.id }) { profile ->
-                    ConnectionCard(
-                        profile = profile,
-                        onClick = { onConnect(profile.id) },
-                        onEdit = { editingProfile = profile; showSheet = true },
-                        onDelete = { deleteTarget = profile }
-                    )
-                }
-            }
-        }
+        ConnectionListContent(
+            profiles = profiles,
+            onConnect = onConnect,
+            onEdit = { profile ->
+                editingProfile = profile
+                showSheet = true
+            },
+            onDelete = { deleteTarget = it },
+            modifier = Modifier.padding(padding),
+        )
     }
 
     if (showSheet) {
@@ -130,26 +102,106 @@ fun ConnectionListScreen(
             onSave = { profile ->
                 viewModel.save(profile)
                 showSheet = false
-            }
+            },
         )
     }
 
-    val target = deleteTarget
-    if (target != null) {
-        AlertDialog(
-            onDismissRequest = { deleteTarget = null },
-            title = { Text("Delete Connection") },
-            text = { Text("Delete \"${target.name}\"? This cannot be undone.") },
-            confirmButton = {
-                TextButton(onClick = { viewModel.delete(target.id); deleteTarget = null }) {
-                    Text("Delete", color = MaterialTheme.colorScheme.error)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { deleteTarget = null }) { Text("Cancel") }
-            }
-        )
+    ConnectionDeleteDialog(
+        target = deleteTarget,
+        onDismiss = { deleteTarget = null },
+        onDelete = { target ->
+            viewModel.delete(target.id)
+            deleteTarget = null
+        },
+    )
+}
+
+@Composable
+private fun ConnectionListContent(
+    profiles: List<ConnectionProfile>,
+    onConnect: (connectionId: String) -> Unit,
+    onEdit: (ConnectionProfile) -> Unit,
+    onDelete: (ConnectionProfile) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    if (profiles.isEmpty()) {
+        EmptyConnectionState(modifier = modifier.fillMaxSize())
+        return
     }
+
+    LazyColumn(
+        modifier =
+            modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp)
+                .padding(top = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        items(profiles, key = { it.id }) { profile ->
+            ConnectionCard(
+                profile = profile,
+                onClick = { onConnect(profile.id) },
+                onEdit = { onEdit(profile) },
+                onDelete = { onDelete(profile) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun EmptyConnectionState(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center,
+    ) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Icon(
+                Icons.Default.Terminal,
+                contentDescription = null,
+                modifier = Modifier.size(64.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                stringResource(R.string.connection_no_saved_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                stringResource(R.string.connection_no_saved_subtitle),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ConnectionDeleteDialog(
+    target: ConnectionProfile?,
+    onDismiss: () -> Unit,
+    onDelete: (ConnectionProfile) -> Unit,
+) {
+    if (target == null) return
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.connection_delete_title)) },
+        text = { Text(stringResource(R.string.connection_delete_message, target.name)) },
+        confirmButton = {
+            TextButton(onClick = { onDelete(target) }) {
+                Text(
+                    stringResource(R.string.common_delete),
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.common_cancel))
+            }
+        },
+    )
 }
 
 @Composable
@@ -157,55 +209,99 @@ private fun ConnectionCard(
     profile: ConnectionProfile,
     onClick: () -> Unit,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
 ) {
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             Surface(
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
-                modifier = Modifier.size(40.dp)
+                modifier = Modifier.size(40.dp),
             ) {
                 Box(contentAlignment = Alignment.Center) {
                     Text(
                         text = profile.name.take(1).uppercase(),
                         style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary
+                        color = MaterialTheme.colorScheme.primary,
                     )
                 }
             }
 
             Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 12.dp)
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .padding(horizontal = 12.dp),
             ) {
                 Text(profile.name, style = MaterialTheme.typography.titleSmall)
                 Text(
                     "${profile.username}@${profile.host}:${profile.port}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
 
             IconButton(onClick = onEdit) {
-                Icon(Icons.Default.Edit, contentDescription = "Edit", tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Icon(
+                    Icons.Default.Edit,
+                    contentDescription = stringResource(R.string.connection_edit),
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
             IconButton(onClick = onDelete) {
-                Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f))
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = stringResource(R.string.connection_delete),
+                    tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                )
             }
         }
     }
+}
+
+private data class ConnectionDraft(
+    val name: String = "",
+    val host: String = "",
+    val port: String = "22",
+    val username: String = "",
+    val password: String = "",
+    val privateKeyPath: String = "",
+)
+
+private fun ConnectionProfile?.toDraft(): ConnectionDraft =
+    ConnectionDraft(
+        name = this?.name.orEmpty(),
+        host = this?.host.orEmpty(),
+        port = this?.port?.toString() ?: "22",
+        username = this?.username.orEmpty(),
+        password = this?.password.orEmpty(),
+        privateKeyPath = this?.privateKeyPath.orEmpty(),
+    )
+
+private fun ConnectionDraft.toProfileOrNull(initial: ConnectionProfile?): ConnectionProfile? {
+    if (host.isBlank() || username.isBlank()) return null
+    return ConnectionProfile(
+        id = initial?.id ?: UUID.randomUUID().toString(),
+        name = name.ifBlank { "$username@$host" },
+        host = host,
+        port = port.toIntOrNull()?.takeIf { it in 1..65535 } ?: 22,
+        username = username,
+        password = password.ifBlank { null },
+        privateKeyPath = privateKeyPath.ifBlank { null },
+        lastUsedEpochMillis = initial?.lastUsedEpochMillis ?: System.currentTimeMillis(),
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -213,99 +309,110 @@ private fun ConnectionCard(
 private fun ConnectionBottomSheet(
     initial: ConnectionProfile?,
     onDismiss: () -> Unit,
-    onSave: (ConnectionProfile) -> Unit
+    onSave: (ConnectionProfile) -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var name by remember { mutableStateOf(initial?.name ?: "") }
-    var host by remember { mutableStateOf(initial?.host ?: "") }
-    var port by remember { mutableStateOf(initial?.port?.toString() ?: "22") }
-    var username by remember { mutableStateOf(initial?.username ?: "") }
-    var password by remember { mutableStateOf(initial?.password ?: "") }
-    var privateKeyPath by remember { mutableStateOf(initial?.privateKeyPath ?: "") }
+    var draft by remember(initial) { mutableStateOf(initial.toDraft()) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
-        sheetState = sheetState
+        sheetState = sheetState,
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp)
-                .padding(bottom = 32.dp)
-                .imePadding(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .wrapContentHeight()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 32.dp)
+                    .imePadding(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             Text(
-                text = if (initial != null) "Edit Connection" else "New Connection",
-                style = MaterialTheme.typography.titleLarge
+                text =
+                    if (initial != null) {
+                        stringResource(R.string.connection_sheet_edit_title)
+                    } else {
+                        stringResource(R.string.connection_sheet_new_title)
+                    },
+                style = MaterialTheme.typography.titleLarge,
             )
             Spacer(modifier = Modifier.height(4.dp))
 
-            OutlinedTextField(
-                value = name, onValueChange = { name = it },
-                label = { Text("Name") }, singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = host, onValueChange = { host = it },
-                label = { Text("Host") }, singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = port, onValueChange = { port = it },
-                label = { Text("Port") }, singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = username, onValueChange = { username = it },
-                label = { Text("Username") }, singleLine = true,
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = password, onValueChange = { password = it },
-                label = { Text("Password (Optional)") }, singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = privateKeyPath, onValueChange = { privateKeyPath = it },
-                label = { Text("Private Key Path") }, singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+            ConnectionFormFields(
+                draft = draft,
+                onDraftChange = { draft = it },
             )
 
             Spacer(modifier = Modifier.height(8.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 OutlinedButton(
                     onClick = onDismiss,
-                    modifier = Modifier.weight(1f)
-                ) { Text("Cancel") }
+                    modifier = Modifier.weight(1f),
+                ) { Text(stringResource(R.string.common_cancel)) }
 
                 Button(
                     onClick = {
-                        if (host.isNotBlank() && username.isNotBlank()) {
-                            onSave(
-                                ConnectionProfile(
-                                    id = initial?.id ?: java.util.UUID.randomUUID().toString(),
-                                    name = name.ifBlank { "$username@$host" },
-                                    host = host,
-                                    port = port.toIntOrNull()?.takeIf { it in 1..65535 } ?: 22,
-                                    username = username,
-                                    password = password.ifBlank { null },
-                                    privateKeyPath = privateKeyPath.ifBlank { null },
-                                    lastUsedEpochMillis = initial?.lastUsedEpochMillis
-                                        ?: System.currentTimeMillis()
-                                )
-                            )
-                        }
+                        draft.toProfileOrNull(initial)?.let(onSave)
                     },
-                    modifier = Modifier.weight(1f)
-                ) { Text("Save") }
+                    modifier = Modifier.weight(1f),
+                ) { Text(stringResource(R.string.common_save)) }
             }
         }
     }
+}
+
+@Composable
+private fun ConnectionFormFields(
+    draft: ConnectionDraft,
+    onDraftChange: (ConnectionDraft) -> Unit,
+) {
+    OutlinedTextField(
+        value = draft.name,
+        onValueChange = { onDraftChange(draft.copy(name = it)) },
+        label = { Text(stringResource(R.string.connection_label_name)) },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    OutlinedTextField(
+        value = draft.host,
+        onValueChange = { onDraftChange(draft.copy(host = it)) },
+        label = { Text(stringResource(R.string.connection_label_host)) },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    OutlinedTextField(
+        value = draft.port,
+        onValueChange = { onDraftChange(draft.copy(port = it)) },
+        label = { Text(stringResource(R.string.connection_label_port)) },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    OutlinedTextField(
+        value = draft.username,
+        onValueChange = { onDraftChange(draft.copy(username = it)) },
+        label = { Text(stringResource(R.string.connection_label_username)) },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    OutlinedTextField(
+        value = draft.password,
+        onValueChange = { onDraftChange(draft.copy(password = it)) },
+        label = { Text(stringResource(R.string.connection_label_password_optional)) },
+        singleLine = true,
+        visualTransformation = PasswordVisualTransformation(),
+        modifier = Modifier.fillMaxWidth(),
+    )
+    OutlinedTextField(
+        value = draft.privateKeyPath,
+        onValueChange = { onDraftChange(draft.copy(privateKeyPath = it)) },
+        label = { Text(stringResource(R.string.connection_label_private_key_path)) },
+        singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+    )
 }

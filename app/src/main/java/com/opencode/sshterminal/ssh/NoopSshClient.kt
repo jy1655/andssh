@@ -9,7 +9,11 @@ class NoopSshClient : SshClient {
         return object : SshSession {
             private var open = false
 
-            override suspend fun openPtyShell(termType: String, cols: Int, rows: Int) {
+            override suspend fun openPtyShell(
+                termType: String,
+                cols: Int,
+                rows: Int,
+            ) {
                 open = true
             }
 
@@ -23,7 +27,10 @@ class NoopSshClient : SshClient {
                 // no-op for scaffold
             }
 
-            override suspend fun windowChange(cols: Int, rows: Int) {
+            override suspend fun windowChange(
+                cols: Int,
+                rows: Int,
+            ) {
                 // no-op for scaffold
             }
 

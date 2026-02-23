@@ -1,16 +1,12 @@
 package com.opencode.sshterminal.session
 
-import android.util.Log
 import com.opencode.sshterminal.di.ApplicationScope
 import com.opencode.sshterminal.service.BellNotifier
-import com.opencode.sshterminal.ssh.HostKeyChangedException
 import com.opencode.sshterminal.ssh.SshClient
 import com.opencode.sshterminal.ssh.SshSession
 import com.opencode.sshterminal.terminal.TermuxTerminalBridge
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -60,14 +56,20 @@ class SessionManager
                 onWriteToSsh = { bytes -> sendInput(bytes) },
             )
 
-        val activeBridge: TermuxTerminalBridge?
+        private val connector =
+            SessionConnector(
+                scope = scope,
+                sshClient = sshClient,
+                tabRegistry = tabRegistry,
+                activeTabId = _activeTabId,
+                refreshFlows = { refreshFlows() },
+            )
+
+        val bridge: TermuxTerminalBridge
             get() =
                 synchronized(tabRegistry) {
                     _activeTabId.value?.let { tabId -> tabRegistry[tabId]?.bridge }
-                }
-
-        val bridge: TermuxTerminalBridge
-            get() = activeBridge ?: fallbackBridge
+                } ?: fallbackBridge
 
         fun openTab(
             title: String,
@@ -80,7 +82,7 @@ class SessionManager
                 TermuxTerminalBridge(
                     cols = 120,
                     rows = 40,
-                    onWriteToSsh = { bytes -> sendInputToTab(tabId, bytes) },
+                    onWriteToSsh = { bytes -> connector.sendInputToTab(tabId, bytes) },
                     onBellReceived = { scope.launch { bellNotifier.notifyBell(tabId, bellTitle) } },
                 )
             val snapshotFlow =
@@ -108,16 +110,8 @@ class SessionManager
                 _activeTabId.value = tabId
             }
             refreshFlows()
-            startConnect(tabId, request)
+            connector.startConnect(tabId, request)
             return tabId
-        }
-
-        fun connect(request: ConnectRequest) {
-            openTab(
-                title = "${request.username}@${request.host}",
-                connectionId = "${request.username}@${request.host}:${request.port}",
-                request = request,
-            )
         }
 
         fun closeTab(tabId: TabId) {
@@ -146,10 +140,11 @@ class SessionManager
             refreshFlows()
         }
 
-        fun disconnectTab(tabId: TabId) {
+        fun disconnect() {
             var sshSession: SshSession?
             var connectJob: Job?
             synchronized(tabRegistry) {
+                val tabId = _activeTabId.value ?: return
                 val tab = tabRegistry[tabId] ?: return
                 sshSession = tab.sshSession
                 connectJob = tab.connectJob
@@ -170,11 +165,6 @@ class SessionManager
             refreshFlows()
         }
 
-        fun disconnect() {
-            val tabId = _activeTabId.value ?: return
-            disconnectTab(tabId)
-        }
-
         fun switchTab(tabId: TabId) {
             synchronized(tabRegistry) {
                 if (!tabRegistry.containsKey(tabId)) return
@@ -185,7 +175,7 @@ class SessionManager
 
         fun sendInput(bytes: ByteArray) {
             val tabId = _activeTabId.value ?: return
-            sendInputToTab(tabId, bytes)
+            connector.sendInputToTab(tabId, bytes)
         }
 
         fun resize(
@@ -206,17 +196,6 @@ class SessionManager
             }
         }
 
-        fun forceRepaint() {
-            val activeTab: TabSession =
-                synchronized(tabRegistry) {
-                    val tabId = _activeTabId.value ?: return
-                    tabRegistry[tabId] ?: return
-                }
-            scope.launch {
-                activeTab.sshSession?.windowChange(activeTab.lastCols, activeTab.lastRows)
-            }
-        }
-
         fun dismissHostKeyAlert() {
             synchronized(tabRegistry) {
                 val tabId = _activeTabId.value ?: return
@@ -227,196 +206,9 @@ class SessionManager
             refreshFlows()
         }
 
-        fun trustHostKeyOnce() {
-            val tabId: TabId
-            val request: ConnectRequest
-            synchronized(tabRegistry) {
-                tabId = _activeTabId.value ?: return
-                val tab = tabRegistry[tabId] ?: return
-                request = tab.pendingHostKeyRequest ?: return
-                tab.pendingHostKeyRequest = null
-                tab.snapshotFlow.value = tab.snapshotFlow.value.copy(hostKeyAlert = null, error = null)
-            }
-            refreshFlows()
-            startConnect(tabId, request.copy(hostKeyPolicy = HostKeyPolicy.TRUST_ONCE))
-        }
+        fun trustHostKeyOnce() = connector.reconnectPendingHostKey(HostKeyPolicy.TRUST_ONCE)
 
-        fun updateKnownHostsAndReconnect() {
-            val tabId: TabId
-            val request: ConnectRequest
-            synchronized(tabRegistry) {
-                tabId = _activeTabId.value ?: return
-                val tab = tabRegistry[tabId] ?: return
-                request = tab.pendingHostKeyRequest ?: return
-                tab.pendingHostKeyRequest = null
-                tab.snapshotFlow.value = tab.snapshotFlow.value.copy(hostKeyAlert = null, error = null)
-            }
-            refreshFlows()
-            startConnect(tabId, request.copy(hostKeyPolicy = HostKeyPolicy.UPDATE_KNOWN_HOSTS))
-        }
-
-        val isConnected: Boolean
-            get() = _activeSnapshot.value?.state == SessionState.CONNECTED
-
-        private fun startConnect(
-            tabId: TabId,
-            request: ConnectRequest,
-        ) {
-            var previousJob: Job?
-            synchronized(tabRegistry) {
-                val tab = tabRegistry[tabId] ?: return
-                previousJob = tab.connectJob
-                tab.pendingHostKeyRequest = null
-                tab.snapshotFlow.value =
-                    SessionSnapshot(
-                        sessionId = SessionId(),
-                        state = SessionState.CONNECTING,
-                        host = request.host,
-                        port = request.port,
-                        username = request.username,
-                    )
-            }
-            previousJob?.cancel()
-            refreshFlows()
-
-            val job =
-                scope.launch {
-                    connectTab(tabId, request)
-                }
-            synchronized(tabRegistry) {
-                val tab = tabRegistry[tabId]
-                if (tab == null) {
-                    job.cancel()
-                } else {
-                    tab.connectJob = job
-                }
-            }
-        }
-
-        private suspend fun connectTab(
-            tabId: TabId,
-            request: ConnectRequest,
-        ) {
-            val currentJob = currentCoroutineContext()[Job]
-            var session: SshSession? = null
-            try {
-                session = sshClient.connect(request)
-                val tabBridge = attachSessionToTab(tabId, session, request)
-                if (tabBridge == null) {
-                    closeSession(session)
-                    return
-                }
-                establishConnectedSession(tabId, tabBridge, session, request)
-
-                session.readLoop { bytes ->
-                    tabBridge.feed(bytes)
-                }
-
-                markTabDisconnected(tabId, session)
-            } catch (cancelled: CancellationException) {
-                closeSession(session)
-                throw cancelled
-            } catch (err: Throwable) {
-                handleConnectError(tabId, request, session, err)
-            } finally {
-                clearConnectJobIfCurrent(tabId, currentJob)
-            }
-        }
-
-        private fun attachSessionToTab(
-            tabId: TabId,
-            session: SshSession,
-            request: ConnectRequest,
-        ): TermuxTerminalBridge? =
-            synchronized(tabRegistry) {
-                val tab = tabRegistry[tabId] ?: return@synchronized null
-                tab.sshSession = session
-                tab.lastCols = request.cols
-                tab.lastRows = request.rows
-                tab.bridge
-            }
-
-        private suspend fun establishConnectedSession(
-            tabId: TabId,
-            tabBridge: TermuxTerminalBridge,
-            session: SshSession,
-            request: ConnectRequest,
-        ) {
-            tabBridge.resize(request.cols, request.rows)
-            session.openPtyShell(request.termType, request.cols, request.rows)
-            synchronized(tabRegistry) {
-                val tab = tabRegistry[tabId] ?: return@synchronized
-                tab.snapshotFlow.value =
-                    tab.snapshotFlow.value.copy(
-                        state = SessionState.CONNECTED,
-                        error = null,
-                        hostKeyAlert = null,
-                    )
-            }
-            refreshFlows()
-        }
-
-        private fun markTabDisconnected(
-            tabId: TabId,
-            session: SshSession,
-        ) {
-            synchronized(tabRegistry) {
-                val tab = tabRegistry[tabId] ?: return@synchronized
-                if (tab.sshSession === session) {
-                    tab.sshSession = null
-                }
-                tab.snapshotFlow.value = tab.snapshotFlow.value.copy(state = SessionState.DISCONNECTED)
-            }
-            refreshFlows()
-        }
-
-        private suspend fun handleConnectError(
-            tabId: TabId,
-            request: ConnectRequest,
-            session: SshSession?,
-            err: Throwable,
-        ) {
-            closeSession(session)
-            Log.e(TAG, "Connection failed", err)
-            synchronized(tabRegistry) {
-                val tab = tabRegistry[tabId] ?: return@synchronized
-                tab.sshSession = null
-                val hostKeyAlert = toHostKeyAlert(err, request)
-                if (hostKeyAlert != null) {
-                    tab.pendingHostKeyRequest = request
-                    tab.snapshotFlow.value =
-                        tab.snapshotFlow.value.copy(
-                            state = SessionState.FAILED,
-                            error = hostKeyAlert.message,
-                            hostKeyAlert = hostKeyAlert,
-                        )
-                } else {
-                    tab.snapshotFlow.value =
-                        tab.snapshotFlow.value.copy(
-                            state = SessionState.FAILED,
-                            error = err.message ?: "unknown error",
-                            hostKeyAlert = null,
-                        )
-                }
-            }
-            refreshFlows()
-        }
-
-        private fun clearConnectJobIfCurrent(
-            tabId: TabId,
-            currentJob: Job?,
-        ) {
-            synchronized(tabRegistry) {
-                val tab = tabRegistry[tabId] ?: return@synchronized
-                if (tab.connectJob == currentJob) {
-                    tab.connectJob = null
-                }
-            }
-        }
-
-        private suspend fun closeSession(session: SshSession?) {
-            runCatching { session?.close() }
-        }
+        fun updateKnownHostsAndReconnect() = connector.reconnectPendingHostKey(HostKeyPolicy.UPDATE_KNOWN_HOSTS)
 
         private fun refreshFlows() {
             val activeId: TabId?
@@ -443,49 +235,4 @@ class SessionManager
                 }
         }
 
-        private fun sendInputToTab(
-            tabId: TabId,
-            bytes: ByteArray,
-        ) {
-            scope.launch {
-                val sshSession =
-                    synchronized(tabRegistry) {
-                        tabRegistry[tabId]?.sshSession
-                    }
-                sshSession?.write(bytes)
-            }
-        }
-
-        private fun toHostKeyAlert(
-            err: Throwable,
-            request: ConnectRequest,
-        ): HostKeyAlert? {
-            if (err is HostKeyChangedException) {
-                return HostKeyAlert(
-                    host = err.host,
-                    port = err.port,
-                    fingerprint = err.fingerprint,
-                    message = err.message,
-                )
-            }
-
-            val message = err.message ?: return null
-            val isHostKeyNotVerifiable =
-                "HOST_KEY_NOT_VERIFIABLE" in message ||
-                    ("Could not verify" in message && "host key" in message)
-            if (!isHostKeyNotVerifiable) return null
-
-            val fingerprint = FINGERPRINT_REGEX.find(message)?.groupValues?.get(1) ?: "unknown"
-            return HostKeyAlert(
-                host = request.host,
-                port = request.port,
-                fingerprint = fingerprint,
-                message = message,
-            )
-        }
-
-        companion object {
-            private const val TAG = "SessionManager"
-            private val FINGERPRINT_REGEX = Regex("fingerprint `([^`]+)`")
-        }
     }

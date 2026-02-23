@@ -102,22 +102,16 @@ class TerminalViewModel
 
         fun sendInput(bytes: ByteArray) = sessionManager.sendInput(bytes)
 
-        fun sendText(text: String) = sessionManager.sendInput(text.toByteArray(Charsets.UTF_8))
-
         fun resize(
             cols: Int,
             rows: Int,
         ) = sessionManager.resize(cols, rows)
-
-        fun forceRepaint() = sessionManager.forceRepaint()
 
         fun dismissHostKeyAlert() = sessionManager.dismissHostKeyAlert()
 
         fun trustHostKeyOnce() = sessionManager.trustHostKeyOnce()
 
         fun updateKnownHostsAndReconnect() = sessionManager.updateKnownHostsAndReconnect()
-
-        val isConnected: Boolean get() = sessionManager.isConnected
 
         companion object {
             private const val STATE_FLOW_TIMEOUT_MS = 5_000L

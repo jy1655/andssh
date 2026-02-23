@@ -59,23 +59,6 @@ class SshjSftpAdapter : SftpChannelAdapter {
             requireSftp().ls(remotePath).map { it.toRemoteEntry() }
         }
 
-    override suspend fun exists(remotePath: String): Boolean =
-        withContext(Dispatchers.IO) {
-            try {
-                requireSftp().stat(remotePath)
-                true
-            } catch (t: Throwable) {
-                if (isSftpNoSuchFileError(t)) false else throw t
-            }
-        }
-
-    override suspend fun upload(
-        localPath: String,
-        remotePath: String,
-    ) = withContext(Dispatchers.IO) {
-        requireSftp().put(localPath, remotePath)
-    }
-
     override suspend fun uploadStream(
         input: InputStream,
         remotePath: String,
@@ -96,13 +79,6 @@ class SshjSftpAdapter : SftpChannelAdapter {
         } finally {
             runCatching { handle.close() }
         }
-    }
-
-    override suspend fun download(
-        remotePath: String,
-        localPath: String,
-    ) = withContext(Dispatchers.IO) {
-        requireSftp().get(remotePath, localPath)
     }
 
     override suspend fun downloadStream(

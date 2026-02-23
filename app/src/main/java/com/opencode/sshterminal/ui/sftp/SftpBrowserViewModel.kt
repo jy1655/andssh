@@ -100,40 +100,6 @@ class SftpBrowserViewModel
 
         fun navigateTo(path: String) = list(path)
 
-        fun setRemotePath(path: String) {
-            _uiState.value = _uiState.value.copy(remotePath = path)
-        }
-
-        fun download(
-            remotePath: String,
-            localPath: String,
-        ) {
-            viewModelScope.launch {
-                _uiState.value =
-                    _uiState.value.copy(
-                        busy = true,
-                        status = context.getString(R.string.sftp_status_downloading),
-                        transferProgress = 0f,
-                    )
-                runCatching {
-                    sftpAdapter.download(remotePath, localPath)
-                    _uiState.value =
-                        _uiState.value.copy(
-                            status = context.getString(R.string.sftp_status_downloaded_to, localPath),
-                            busy = false,
-                            transferProgress = -1f,
-                        )
-                }.onFailure { t ->
-                    _uiState.value =
-                        _uiState.value.copy(
-                            status = context.getString(R.string.sftp_status_download_failed, t.message),
-                            busy = false,
-                            transferProgress = -1f,
-                        )
-                }
-            }
-        }
-
         fun downloadToStream(
             remotePath: String,
             uri: Uri,
@@ -310,7 +276,9 @@ class SftpBrowserViewModel
     }
 
 internal fun isValidRemoteName(name: String): Boolean {
-    if (name.isBlank()) return false
-    if (name == "." || name == "..") return false
-    return '/' !in name && '\\' !in name
+    return name.isNotBlank() &&
+        name != "." &&
+        name != ".." &&
+        '/' !in name &&
+        '\\' !in name
 }

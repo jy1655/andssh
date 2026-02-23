@@ -14,23 +14,11 @@ interface SftpChannelAdapter : Closeable {
 
     suspend fun list(remotePath: String): List<RemoteEntry>
 
-    suspend fun exists(remotePath: String): Boolean
-
-    suspend fun upload(
-        localPath: String,
-        remotePath: String,
-    )
-
     suspend fun uploadStream(
         input: InputStream,
         remotePath: String,
         totalBytes: Long,
         onProgress: ((Long, Long) -> Unit)? = null,
-    )
-
-    suspend fun download(
-        remotePath: String,
-        localPath: String,
     )
 
     suspend fun downloadStream(

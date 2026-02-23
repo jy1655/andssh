@@ -23,25 +23,31 @@ class SshjClient : SshClient {
             var sessionReady = false
 
             try {
-                ssh.connect(request.host, request.port)
-                verifierSetup.updatingVerifier?.persistAcceptedHostKeyIfNeeded()
-                logKnownHostsDiffIfNeeded(request, verifierSetup)
-                ssh.authenticate(request)
+                val connectResult =
+                    runCatching {
+                        ssh.connect(request.host, request.port)
+                        verifierSetup.updatingVerifier?.persistAcceptedHostKeyIfNeeded()
+                        logKnownHostsDiffIfNeeded(request, verifierSetup)
+                        ssh.authenticate(request)
 
-                val session = ssh.startSession()
-                sessionReady = true
-                SshjSession(ssh, session)
-            } catch (t: Throwable) {
-                val changedFingerprint = verifierSetup.verifier?.changedFingerprint
-                if (changedFingerprint != null) {
-                    throw HostKeyChangedException(
-                        host = request.host,
-                        port = request.port,
-                        fingerprint = changedFingerprint,
-                        message = "Host key changed for ${request.host}:${request.port}",
-                    )
+                        val session = ssh.startSession()
+                        sessionReady = true
+                        SshjSession(ssh, session)
+                    }
+                val failure = connectResult.exceptionOrNull()
+                if (failure != null) {
+                    val changedFingerprint = verifierSetup.verifier?.changedFingerprint
+                    if (changedFingerprint != null) {
+                        throw HostKeyChangedException(
+                            host = request.host,
+                            port = request.port,
+                            fingerprint = changedFingerprint,
+                            message = "Host key changed for ${request.host}:${request.port}",
+                        )
+                    }
+                    throw failure
                 }
-                throw t
+                connectResult.getOrThrow()
             } finally {
                 if (!sessionReady) {
                     runCatching { ssh.disconnect() }
@@ -96,23 +102,23 @@ class SshjClient : SshClient {
     ) {
         if (request.hostKeyPolicy != HostKeyPolicy.UPDATE_KNOWN_HOSTS) return
         val knownHostsFile = setup.knownHostsFile ?: return
-        val before = setup.knownHostsBefore ?: emptyList()
+        val before = setup.knownHostsBefore.orEmpty()
         val after = readKnownHostsLines(knownHostsFile)
-
         if (before == after) {
-            Log.i(TAG, "known_hosts unchanged after UPDATE_KNOWN_HOSTS for ${request.host}:${request.port}")
-            return
+            Log.i(
+                TAG,
+                "known_hosts unchanged after UPDATE_KNOWN_HOSTS for ${request.host}:${request.port}",
+            )
+        } else {
+            val added = after.toSet() - before.toSet()
+            val removed = before.toSet() - after.toSet()
+            Log.i(
+                TAG,
+                "known_hosts updated for ${request.host}:${request.port}, added=${added.size}, removed=${removed.size}",
+            )
+            added.take(5).forEach { Log.i(TAG, "known_hosts + $it") }
+            removed.take(5).forEach { Log.i(TAG, "known_hosts - $it") }
         }
-
-        val added = after.toSet() - before.toSet()
-        val removed = before.toSet() - after.toSet()
-
-        Log.i(
-            TAG,
-            "known_hosts updated for ${request.host}:${request.port}, added=${added.size}, removed=${removed.size}",
-        )
-        added.take(5).forEach { Log.i(TAG, "known_hosts + $it") }
-        removed.take(5).forEach { Log.i(TAG, "known_hosts - $it") }
     }
 
     private data class VerifierSetup(
@@ -199,8 +205,9 @@ private class SshjSession(
             while (true) {
                 val read = input.read(buffer)
                 if (read < 0) break
-                if (read == 0) continue
-                onBytes(buffer.copyOf(read))
+                if (read > 0) {
+                    onBytes(buffer.copyOf(read))
+                }
             }
         }
 

@@ -341,16 +341,20 @@ private fun argbToColor(argb: Int): Color {
 }
 
 private fun color256(index: Int): Color {
-    if (index < 16) return ANSI_COLORS[index]
-    if (index < 232) {
-        val i = index - 16
-        val r = (i / 36) * 51
-        val g = ((i % 36) / 6) * 51
-        val b = (i % 6) * 51
-        return Color(r, g, b)
+    return when {
+        index < 16 -> ANSI_COLORS[index]
+        index < 232 -> {
+            val i = index - 16
+            val r = (i / 36) * 51
+            val g = ((i % 36) / 6) * 51
+            val b = (i % 6) * 51
+            Color(r, g, b)
+        }
+        else -> {
+            val gray = 8 + (index - 232) * 10
+            Color(gray, gray, gray)
+        }
     }
-    val gray = 8 + (index - 232) * 10
-    return Color(gray, gray, gray)
 }
 
 /**

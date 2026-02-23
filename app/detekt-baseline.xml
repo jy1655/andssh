@@ -1,24 +1,5 @@
 <?xml version="1.0" ?>
 <SmellBaseline>
   <ManuallySuppressedIssues/>
-  <CurrentIssues>
-    <ID>EmptyFunctionBlock:TermuxTerminalBridge.kt$TermuxTerminalBridge.&lt;no name provided&gt;${}</ID>
-    <ID>LoopWithTooManyJumpStatements:SshjClient.kt$SshjSession$while</ID>
-    <ID>MatchingDeclarationName:SftpModels.kt$RemoteEntry</ID>
-    <ID>ReturnCount:SessionManager.kt$SessionManager$fun trustHostKeyOnce()</ID>
-    <ID>ReturnCount:SessionManager.kt$SessionManager$fun updateKnownHostsAndReconnect()</ID>
-    <ID>ReturnCount:SessionManager.kt$SessionManager$private fun toHostKeyAlert( err: Throwable, request: ConnectRequest, ): HostKeyAlert?</ID>
-    <ID>ReturnCount:SftpBrowserViewModel.kt$internal fun isValidRemoteName(name: String): Boolean</ID>
-    <ID>ReturnCount:SshjClient.kt$SshjClient$private fun logKnownHostsDiffIfNeeded( request: ConnectRequest, setup: VerifierSetup, )</ID>
-    <ID>ReturnCount:TerminalRenderer.kt$private fun color256(index: Int): Color</ID>
-    <ID>TooGenericExceptionCaught:SessionManager.kt$SessionManager$err: Throwable</ID>
-    <ID>TooGenericExceptionCaught:SshjClient.kt$SshjClient$t: Throwable</ID>
-    <ID>TooGenericExceptionCaught:SshjSftpAdapter.kt$SshjSftpAdapter$t: Throwable</ID>
-    <ID>TooManyFunctions:SessionManager.kt$SessionManager</ID>
-    <ID>TooManyFunctions:SftpBrowserViewModel.kt$SftpBrowserViewModel : ViewModel</ID>
-    <ID>TooManyFunctions:SftpChannelAdapter.kt$SftpChannelAdapter : Closeable</ID>
-    <ID>TooManyFunctions:SshjSftpAdapter.kt$SshjSftpAdapter : SftpChannelAdapter</ID>
-    <ID>TooManyFunctions:TerminalViewModel.kt$TerminalViewModel : ViewModel</ID>
-    <ID>TooManyFunctions:TermuxTerminalBridge.kt$TermuxTerminalBridge$&lt;no name provided&gt; : TerminalSessionClient</ID>
-  </CurrentIssues>
+  <CurrentIssues/>
 </SmellBaseline>

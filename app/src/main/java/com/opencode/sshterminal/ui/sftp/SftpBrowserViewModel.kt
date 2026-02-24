@@ -7,6 +7,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.opencode.sshterminal.R
 import com.opencode.sshterminal.data.ConnectionProfile
+import com.opencode.sshterminal.data.ConnectionProtocol
 import com.opencode.sshterminal.data.ConnectionRepository
 import com.opencode.sshterminal.data.SettingsRepository
 import com.opencode.sshterminal.session.JumpCredential
@@ -48,6 +49,14 @@ class SftpBrowserViewModel
         init {
             viewModelScope.launch {
                 val profile = connectionRepository.get(connectionId) ?: return@launch
+                if (profile.protocol == ConnectionProtocol.MOSH) {
+                    _uiState.value =
+                        _uiState.value.copy(
+                            status = context.getString(R.string.sftp_status_mosh_not_supported),
+                            busy = false,
+                        )
+                    return@launch
+                }
                 val identity = profile.identityId?.let { identityId -> connectionRepository.getIdentity(identityId) }
                 val proxyJumpCredentials = resolveProxyJumpCredentials(profile)
                 val keepaliveInterval = settingsRepository.sshKeepaliveIntervalSeconds.first()

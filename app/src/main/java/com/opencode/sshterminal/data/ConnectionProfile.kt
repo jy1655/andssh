@@ -7,6 +7,7 @@ import java.util.UUID
 data class ConnectionProfile(
     val id: String = UUID.randomUUID().toString(),
     val name: String,
+    val protocol: ConnectionProtocol = ConnectionProtocol.SSH,
     val host: String,
     val port: Int = 22,
     val username: String,

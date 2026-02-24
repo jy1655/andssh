@@ -44,6 +44,9 @@
     <string name="connection_tags_placeholder">쉼표로 구분, 예: prod, db, k8s</string>
     <string name="connection_terminal_scheme_label">터미널 색상 스킴</string>
     <string name="connection_terminal_scheme_use_app_default">앱 기본값 사용</string>
+    <string name="connection_label_protocol">프로토콜</string>
+    <string name="connection_protocol_ssh">SSH</string>
+    <string name="connection_protocol_mosh">Mosh</string>
     <string name="connection_label_startup_command_optional">시작 명령어 (선택)</string>
     <string name="connection_startup_command_placeholder">예: cd /srv/app &amp;&amp; tmux attach -t app</string>
     <string name="connection_label_environment_variables_optional">환경 변수 (선택)</string>
@@ -148,6 +151,7 @@
     <string name="terminal_split_enable">분할</string>
     <string name="terminal_split_disable">단일</string>
     <string name="terminal_split_next_pane">다음 패널</string>
+    <string name="terminal_mosh_unavailable_message">이 빌드에서는 Mosh를 사용할 수 없습니다. 현재는 이 연결의 프로토콜을 SSH로 변경해 주세요.</string>
 
     <string name="sftp_browser_title">SFTP 탐색기</string>
     <string name="sftp_back">뒤로</string>
@@ -192,6 +196,7 @@
     <string name="sftp_status_invalid_permissions">잘못된 권한입니다. 3자리 8진수(예: 644)를 입력하세요.</string>
     <string name="sftp_status_chmod_complete">권한을 %1$s(으)로 변경했습니다</string>
     <string name="sftp_status_chmod_failed">권한 변경 실패: %1$s</string>
+    <string name="sftp_status_mosh_not_supported">Mosh 연결에서는 SFTP를 사용할 수 없습니다. 연결 프로토콜을 SSH로 변경해 주세요.</string>
 
     <string name="lock_title">앱 잠금 해제</string>
     <string name="lock_subtitle">계속하려면 마스터 비밀번호를 입력하세요</string>

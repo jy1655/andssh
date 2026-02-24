@@ -44,6 +44,9 @@
     <string name="connection_tags_placeholder">Comma-separated, e.g. prod, db, k8s</string>
     <string name="connection_terminal_scheme_label">Terminal color scheme</string>
     <string name="connection_terminal_scheme_use_app_default">Use app default</string>
+    <string name="connection_label_protocol">Protocol</string>
+    <string name="connection_protocol_ssh">SSH</string>
+    <string name="connection_protocol_mosh">Mosh</string>
     <string name="connection_label_startup_command_optional">Startup command (Optional)</string>
     <string name="connection_startup_command_placeholder">e.g. cd /srv/app &amp;&amp; tmux attach -t app</string>
     <string name="connection_label_environment_variables_optional">Environment variables (Optional)</string>
@@ -148,6 +151,7 @@
     <string name="terminal_split_enable">Split</string>
     <string name="terminal_split_disable">Single</string>
     <string name="terminal_split_next_pane">Next Pane</string>
+    <string name="terminal_mosh_unavailable_message">Mosh is not available in this build. Switch this connection to SSH for now.</string>
 
     <string name="sftp_browser_title">SFTP Browser</string>
     <string name="sftp_back">Back</string>
@@ -192,6 +196,7 @@
     <string name="sftp_status_invalid_permissions">Invalid permissions. Use 3-digit octal, e.g. 644.</string>
     <string name="sftp_status_chmod_complete">Permissions updated to %1$s</string>
     <string name="sftp_status_chmod_failed">chmod failed: %1$s</string>
+    <string name="sftp_status_mosh_not_supported">SFTP is not available for Mosh connections. Switch the connection protocol to SSH.</string>
 
     <string name="lock_title">Unlock App</string>
     <string name="lock_subtitle">Enter your master password to continue</string>

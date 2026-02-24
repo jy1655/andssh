@@ -60,6 +60,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.opencode.sshterminal.R
 import com.opencode.sshterminal.data.ConnectionIdentity
 import com.opencode.sshterminal.data.ConnectionProfile
+import com.opencode.sshterminal.data.ConnectionProtocol
 import com.opencode.sshterminal.data.PortForwardRule
 import com.opencode.sshterminal.data.PortForwardType
 import com.opencode.sshterminal.data.ProxyJumpEntry
@@ -573,6 +574,7 @@ private data class ConnectionDraft(
     val group: String = "",
     val tagsInput: String = "",
     val terminalColorSchemeId: String = "",
+    val protocol: ConnectionProtocol = ConnectionProtocol.SSH,
     val startupCommand: String = "",
     val environmentVariablesInput: String = "",
     val host: String = "",
@@ -593,6 +595,7 @@ private fun ConnectionProfile?.toDraft(): ConnectionDraft =
         group = this?.group.orEmpty(),
         tagsInput = formatConnectionTagsInput(this?.tags.orEmpty()),
         terminalColorSchemeId = this?.terminalColorSchemeId.orEmpty(),
+        protocol = this?.protocol ?: ConnectionProtocol.SSH,
         startupCommand = this?.startupCommand.orEmpty(),
         environmentVariablesInput = formatEnvironmentVariablesInput(this?.environmentVariables.orEmpty()),
         host = this?.host.orEmpty(),
@@ -626,6 +629,7 @@ private fun ConnectionDraft.toProfileOrNull(
         group = group.trim().ifBlank { null },
         tags = parsedTags,
         terminalColorSchemeId = terminalColorSchemeId.trim().ifBlank { null },
+        protocol = protocol,
         startupCommand = startupCommand.trim().ifBlank { null },
         environmentVariables = parsedEnvironmentVariables,
         host = host,
@@ -645,6 +649,9 @@ private fun ConnectionDraft.toProfileOrNull(
 
 private fun connectionRouteSummary(profile: ConnectionProfile): String? {
     val routeTags = mutableListOf<String>()
+    if (profile.protocol == ConnectionProtocol.MOSH) {
+        routeTags += "MOSH"
+    }
     if (!profile.proxyJump.isNullOrBlank()) {
         val hops = parseProxyJumpEntries(profile.proxyJump).size
         routeTags += if (hops > 0) "PJ:$hops" else "PJ"
@@ -826,6 +833,12 @@ private fun ConnectionFormFields(
         selectedSchemeId = draft.terminalColorSchemeId,
         onSelectSchemeId = { schemeId ->
             onDraftChange(draft.copy(terminalColorSchemeId = schemeId))
+        },
+    )
+    ConnectionProtocolField(
+        selectedProtocol = draft.protocol,
+        onSelectProtocol = { protocol ->
+            onDraftChange(draft.copy(protocol = protocol))
         },
     )
     OutlinedTextField(
@@ -1021,6 +1034,46 @@ private fun ConnectionTerminalSchemeField(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun ConnectionProtocolField(
+    selectedProtocol: ConnectionProtocol,
+    onSelectProtocol: (ConnectionProtocol) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedLabel = connectionProtocolLabel(selectedProtocol)
+
+    Box(modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(
+            onClick = { expanded = true },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("${stringResource(R.string.connection_label_protocol)}: $selectedLabel")
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            ConnectionProtocol.entries.forEach { protocol ->
+                DropdownMenuItem(
+                    text = { Text(connectionProtocolLabel(protocol)) },
+                    onClick = {
+                        expanded = false
+                        onSelectProtocol(protocol)
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun connectionProtocolLabel(protocol: ConnectionProtocol): String {
+    return when (protocol) {
+        ConnectionProtocol.SSH -> stringResource(R.string.connection_protocol_ssh)
+        ConnectionProtocol.MOSH -> stringResource(R.string.connection_protocol_mosh)
     }
 }
 

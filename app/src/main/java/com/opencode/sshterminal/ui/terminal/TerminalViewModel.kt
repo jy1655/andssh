@@ -5,7 +5,9 @@ import android.content.Intent
 import android.view.KeyEvent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.opencode.sshterminal.R
 import com.opencode.sshterminal.data.ConnectionProfile
+import com.opencode.sshterminal.data.ConnectionProtocol
 import com.opencode.sshterminal.data.ConnectionRepository
 import com.opencode.sshterminal.data.DEFAULT_TERMINAL_SHORTCUT_LAYOUT
 import com.opencode.sshterminal.data.SettingsRepository
@@ -214,22 +216,34 @@ class TerminalViewModel
                 connectionRepository.touchLastUsed(profile.id)
             }
             val tabId =
-                sessionManager.openTab(
-                    title = profile.name,
-                    connectionId = profile.id,
-                    request =
-                        profile.toConnectRequest(
-                            context = context,
-                            cols = DEFAULT_TERMINAL_COLS,
-                            rows = DEFAULT_TERMINAL_ROWS,
-                            keepaliveIntervalSeconds = sshKeepaliveIntervalSeconds.value,
-                            identity = identity,
-                            proxyJumpCredentials = proxyJumpCredentials,
-                        ),
-                )
-            profile.startupCommand?.let { startupCommand ->
-                scheduleStartupCommand(tabId = tabId, startupCommand = startupCommand)
-            }
+                if (profile.protocol == ConnectionProtocol.MOSH) {
+                    sessionManager.openFailedMessageTab(
+                        title = profile.name,
+                        connectionId = profile.id,
+                        host = profile.host,
+                        port = profile.port,
+                        username = identity?.username ?: profile.username,
+                        message = context.getString(R.string.terminal_mosh_unavailable_message),
+                    )
+                } else {
+                    sessionManager.openTab(
+                        title = profile.name,
+                        connectionId = profile.id,
+                        request =
+                            profile.toConnectRequest(
+                                context = context,
+                                cols = DEFAULT_TERMINAL_COLS,
+                                rows = DEFAULT_TERMINAL_ROWS,
+                                keepaliveIntervalSeconds = sshKeepaliveIntervalSeconds.value,
+                                identity = identity,
+                                proxyJumpCredentials = proxyJumpCredentials,
+                            ),
+                    ).also { createdTabId ->
+                        profile.startupCommand?.let { startupCommand ->
+                            scheduleStartupCommand(tabId = createdTabId, startupCommand = startupCommand)
+                        }
+                    }
+                }
             return tabId
         }
 
@@ -288,7 +302,11 @@ class TerminalViewModel
         ) {
             val normalizedCommand = command.trimEnd()
             if (normalizedCommand.isBlank()) return
-            val normalizedTitle = title.trim().ifEmpty { normalizedCommand.lineSequence().first().trim() }.take(MAX_SNIPPET_TITLE_LENGTH)
+            val normalizedTitle =
+                title
+                    .trim()
+                    .ifEmpty { normalizedCommand.lineSequence().first().trim() }
+                    .take(MAX_SNIPPET_TITLE_LENGTH)
             val snippet =
                 TerminalSnippet(
                     id = existingSnippetId ?: UUID.randomUUID().toString(),

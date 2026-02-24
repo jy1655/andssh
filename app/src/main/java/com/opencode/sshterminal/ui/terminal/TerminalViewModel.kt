@@ -12,6 +12,7 @@ import com.opencode.sshterminal.data.TerminalCommandHistoryEntry
 import com.opencode.sshterminal.data.TerminalCommandHistoryRepository
 import com.opencode.sshterminal.data.TerminalSnippet
 import com.opencode.sshterminal.data.TerminalSnippetRepository
+import com.opencode.sshterminal.data.WorkspaceRepository
 import com.opencode.sshterminal.security.SensitiveClipboardManager
 import com.opencode.sshterminal.service.SshForegroundService
 import com.opencode.sshterminal.session.JumpCredential
@@ -26,6 +27,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -43,9 +45,12 @@ class TerminalViewModel
         private val settingsRepository: SettingsRepository,
         private val terminalSnippetRepository: TerminalSnippetRepository,
         private val terminalCommandHistoryRepository: TerminalCommandHistoryRepository,
+        private val workspaceRepository: WorkspaceRepository,
         private val sensitiveClipboardManager: SensitiveClipboardManager,
         @ApplicationContext private val context: Context,
     ) : ViewModel() {
+        private var hasAttemptedWorkspaceRestore = false
+
         val tabs: StateFlow<List<TabInfo>> =
             sessionManager.tabs
                 .stateIn(
@@ -156,32 +161,67 @@ class TerminalViewModel
                     }
                 }
             }
+            observeWorkspace()
         }
 
         fun openTab(connectionId: String) {
             viewModelScope.launch {
-                val profile = connectionRepository.get(connectionId) ?: return@launch
-                val identity = profile.identityId?.let { identityId -> connectionRepository.getIdentity(identityId) }
-                val proxyJumpCredentials = resolveProxyJumpCredentials(profile)
-                connectionRepository.touchLastUsed(profile.id)
-                val tabId =
-                    sessionManager.openTab(
-                        title = profile.name,
-                        connectionId = profile.id,
-                        request =
-                            profile.toConnectRequest(
-                                context = context,
-                                cols = DEFAULT_TERMINAL_COLS,
-                                rows = DEFAULT_TERMINAL_ROWS,
-                                keepaliveIntervalSeconds = sshKeepaliveIntervalSeconds.value,
-                                identity = identity,
-                                proxyJumpCredentials = proxyJumpCredentials,
-                            ),
-                    )
-                profile.startupCommand?.let { startupCommand ->
-                    scheduleStartupCommand(tabId = tabId, startupCommand = startupCommand)
-                }
+                openTabInternal(connectionId = connectionId, touchLastUsed = true)
             }
+        }
+
+        fun restoreWorkspaceIfNeeded() {
+            if (hasAttemptedWorkspaceRestore) return
+            hasAttemptedWorkspaceRestore = true
+            viewModelScope.launch {
+                if (tabs.value.isNotEmpty()) return@launch
+                val snapshot = workspaceRepository.snapshot.first()
+                if (snapshot.connectionIds.isEmpty()) return@launch
+
+                val restoredTabIds = mutableListOf<TabId>()
+                snapshot.connectionIds.forEach { connectionId ->
+                    val tabId = openTabInternal(connectionId = connectionId, touchLastUsed = false)
+                    if (tabId != null) {
+                        restoredTabIds += tabId
+                    }
+                }
+                if (restoredTabIds.isEmpty()) {
+                    workspaceRepository.clear()
+                    return@launch
+                }
+                val activeIndex = snapshot.activeTabIndex.coerceIn(0, restoredTabIds.lastIndex)
+                sessionManager.switchTab(restoredTabIds[activeIndex])
+            }
+        }
+
+        private suspend fun openTabInternal(
+            connectionId: String,
+            touchLastUsed: Boolean,
+        ): TabId? {
+            val profile = connectionRepository.get(connectionId) ?: return null
+            val identity = profile.identityId?.let { identityId -> connectionRepository.getIdentity(identityId) }
+            val proxyJumpCredentials = resolveProxyJumpCredentials(profile)
+            if (touchLastUsed) {
+                connectionRepository.touchLastUsed(profile.id)
+            }
+            val tabId =
+                sessionManager.openTab(
+                    title = profile.name,
+                    connectionId = profile.id,
+                    request =
+                        profile.toConnectRequest(
+                            context = context,
+                            cols = DEFAULT_TERMINAL_COLS,
+                            rows = DEFAULT_TERMINAL_ROWS,
+                            keepaliveIntervalSeconds = sshKeepaliveIntervalSeconds.value,
+                            identity = identity,
+                            proxyJumpCredentials = proxyJumpCredentials,
+                        ),
+                )
+            profile.startupCommand?.let { startupCommand ->
+                scheduleStartupCommand(tabId = tabId, startupCommand = startupCommand)
+            }
+            return tabId
         }
 
         private suspend fun resolveProxyJumpCredentials(profile: ConnectionProfile): Map<String, JumpCredential> {
@@ -335,6 +375,28 @@ class TerminalViewModel
         fun trustHostKeyOnce() = sessionManager.trustHostKeyOnce()
 
         fun updateKnownHostsAndReconnect() = sessionManager.updateKnownHostsAndReconnect()
+
+        private fun observeWorkspace() {
+            viewModelScope.launch {
+                combine(tabs, activeTabId) { currentTabs, currentActiveTabId ->
+                    val activeIndex = currentTabs.indexOfFirst { info -> info.tabId == currentActiveTabId }
+                    WorkspacePersistState(
+                        connectionIds = currentTabs.map { info -> info.connectionId },
+                        activeTabIndex = activeIndex,
+                    )
+                }.collect { state ->
+                    workspaceRepository.save(
+                        connectionIds = state.connectionIds,
+                        activeTabIndex = state.activeTabIndex,
+                    )
+                }
+            }
+        }
+
+        private data class WorkspacePersistState(
+            val connectionIds: List<String>,
+            val activeTabIndex: Int,
+        )
 
         companion object {
             private const val STATE_FLOW_TIMEOUT_MS = 5_000L

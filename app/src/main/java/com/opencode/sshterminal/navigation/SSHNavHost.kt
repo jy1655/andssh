@@ -54,6 +54,8 @@ fun SSHNavHost(
                         ?.remove<String>("pendingConnectionId")
                 if (pendingId != null) {
                     viewModel.openTab(pendingId)
+                } else {
+                    viewModel.restoreWorkspaceIfNeeded()
                 }
             }
 

@@ -21,6 +21,9 @@
     <string name="connection_add">Add Connection</string>
     <string name="connection_no_saved_title">No saved connections</string>
     <string name="connection_no_saved_subtitle">Tap + to add a new SSH connection</string>
+    <string name="connection_search_label">Search</string>
+    <string name="connection_search_placeholder">Search by name, host, or username</string>
+    <string name="connection_no_search_results">No connections match \"%1$s\"</string>
     <string name="connection_delete_title">Delete Connection</string>
     <string name="connection_delete_message">Delete "%1$s"? This cannot be undone.</string>
     <string name="connection_edit">Edit</string>

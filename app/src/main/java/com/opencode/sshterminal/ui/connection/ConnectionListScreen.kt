@@ -78,6 +78,20 @@ fun ConnectionListScreen(
     var showSheet by remember { mutableStateOf(false) }
     var deleteTarget by remember { mutableStateOf<ConnectionProfile?>(null) }
     var showQuickConnectDialog by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    val filteredProfiles =
+        remember(profiles, searchQuery) {
+            val query = searchQuery.trim()
+            if (query.isBlank()) {
+                profiles
+            } else {
+                profiles.filter { profile ->
+                    profile.name.contains(query, ignoreCase = true) ||
+                        profile.host.contains(query, ignoreCase = true) ||
+                        profile.username.contains(query, ignoreCase = true)
+                }
+            }
+        }
     val sshConfigPicker =
         rememberConnectionSshConfigPicker(
             onImported = { content ->
@@ -136,7 +150,10 @@ fun ConnectionListScreen(
         },
     ) { padding ->
         ConnectionListContent(
-            profiles = profiles,
+            allProfiles = profiles,
+            profiles = filteredProfiles,
+            searchQuery = searchQuery,
+            onSearchQueryChange = { searchQuery = it },
             onConnect = onConnect,
             onEdit = { profile ->
                 editingProfile = profile
@@ -186,32 +203,62 @@ fun ConnectionListScreen(
 
 @Composable
 private fun ConnectionListContent(
+    allProfiles: List<ConnectionProfile>,
     profiles: List<ConnectionProfile>,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
     onConnect: (connectionId: String) -> Unit,
     onEdit: (ConnectionProfile) -> Unit,
     onDelete: (ConnectionProfile) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    if (profiles.isEmpty()) {
-        EmptyConnectionState(modifier = modifier.fillMaxSize())
-        return
-    }
-
-    LazyColumn(
+    Column(
         modifier =
             modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp)
-                .padding(top = 8.dp),
+                .padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        items(profiles, key = { it.id }) { profile ->
-            ConnectionCard(
-                profile = profile,
-                onClick = { onConnect(profile.id) },
-                onEdit = { onEdit(profile) },
-                onDelete = { onDelete(profile) },
-            )
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = onSearchQueryChange,
+            label = { Text(stringResource(R.string.connection_search_label)) },
+            placeholder = { Text(stringResource(R.string.connection_search_placeholder)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+
+        when {
+            allProfiles.isEmpty() -> {
+                EmptyConnectionState(modifier = Modifier.fillMaxSize())
+            }
+            profiles.isEmpty() -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = stringResource(R.string.connection_no_search_results, searchQuery.trim()),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            else -> {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(profiles, key = { it.id }) { profile ->
+                        ConnectionCard(
+                            profile = profile,
+                            onClick = { onConnect(profile.id) },
+                            onEdit = { onEdit(profile) },
+                            onDelete = { onDelete(profile) },
+                        )
+                    }
+                }
+            }
         }
     }
 }

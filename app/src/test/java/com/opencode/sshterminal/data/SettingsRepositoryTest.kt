@@ -108,4 +108,23 @@ class SettingsRepositoryTest {
             repo.setSshKeepaliveInterval(30)
             assertEquals(30, repo.sshKeepaliveIntervalSeconds.first())
         }
+
+    @Test
+    fun `default screenshot protection is disabled`() =
+        runTest(testDispatcher) {
+            val repo = SettingsRepository(createDataStore())
+            assertEquals(
+                SettingsRepository.DEFAULT_SCREENSHOT_PROTECTION_ENABLED,
+                repo.screenshotProtectionEnabled.first(),
+            )
+        }
+
+    @Test
+    fun `setScreenshotProtectionEnabled persists value`() =
+        runTest(testDispatcher) {
+            val ds = createDataStore()
+            val repo = SettingsRepository(ds)
+            repo.setScreenshotProtectionEnabled(true)
+            assertEquals(true, repo.screenshotProtectionEnabled.first())
+        }
 }

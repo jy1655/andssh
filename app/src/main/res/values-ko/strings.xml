@@ -217,6 +217,7 @@
     <string name="settings_app_lock">앱 잠금</string>
     <string name="settings_biometric_unlock">생체 인증 잠금 해제</string>
     <string name="settings_auto_lock">자동 잠금</string>
+    <string name="settings_prevent_screenshots">스크린샷 방지</string>
     <string name="settings_disabled">비활성화</string>
     <string name="settings_color_scheme">색상 스킴</string>
     <string name="settings_font">폰트</string>

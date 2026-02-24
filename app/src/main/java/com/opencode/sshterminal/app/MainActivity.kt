@@ -4,11 +4,13 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.core.content.ContextCompat
@@ -45,6 +47,16 @@ class MainActivity : AppCompatActivity() {
             val themePresetId by settingsRepository.themePresetId.collectAsState(
                 initial = SettingsRepository.DEFAULT_THEME_PRESET,
             )
+            val screenshotProtectionEnabled by settingsRepository.screenshotProtectionEnabled.collectAsState(
+                initial = SettingsRepository.DEFAULT_SCREENSHOT_PROTECTION_ENABLED,
+            )
+            SideEffect {
+                if (screenshotProtectionEnabled) {
+                    window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                } else {
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                }
+            }
             AppTheme(themePreset = ThemePreset.fromId(themePresetId)) {
                 val lockViewModel: LockViewModel = hiltViewModel()
                 val lifecycleOwner = LocalLifecycleOwner.current

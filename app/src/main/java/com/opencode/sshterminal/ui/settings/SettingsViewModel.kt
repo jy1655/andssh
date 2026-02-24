@@ -22,6 +22,7 @@ data class SettingsUiState(
     val themePreset: ThemePreset = ThemePreset.GREEN,
     val isAppLockEnabled: Boolean = false,
     val isBiometricEnabled: Boolean = false,
+    val isScreenshotProtectionEnabled: Boolean = SettingsRepository.DEFAULT_SCREENSHOT_PROTECTION_ENABLED,
     val autoLockTimeoutSeconds: Int = 60,
     val terminalColorScheme: String = "default",
     val terminalFont: String = "meslo_nerd",
@@ -43,11 +44,13 @@ class SettingsViewModel
                 settingsRepository.languageTag,
                 settingsRepository.themePresetId,
                 settingsRepository.autoLockTimeoutSeconds,
-            ) { languageTag, themeId, autoLockTimeout ->
+                settingsRepository.screenshotProtectionEnabled,
+            ) { languageTag, themeId, autoLockTimeout, screenshotProtectionEnabled ->
                 BasePreferences(
                     languageTag = languageTag,
                     themePresetId = themeId,
                     autoLockTimeoutSeconds = autoLockTimeout,
+                    screenshotProtectionEnabled = screenshotProtectionEnabled,
                 )
             }
 
@@ -72,6 +75,7 @@ class SettingsViewModel
                     languageTag = basePrefs.languageTag,
                     themePresetId = basePrefs.themePresetId,
                     autoLockTimeoutSeconds = basePrefs.autoLockTimeoutSeconds,
+                    screenshotProtectionEnabled = basePrefs.screenshotProtectionEnabled,
                     terminalColorScheme = terminalPrefs.colorScheme,
                     terminalFont = terminalPrefs.font,
                     clipboardTimeoutSeconds = terminalPrefs.clipboardTimeoutSeconds,
@@ -99,6 +103,7 @@ class SettingsViewModel
                     themePreset = ThemePreset.fromId(prefs.themePresetId),
                     isAppLockEnabled = authPrefs.isAppLockEnabled,
                     isBiometricEnabled = authPrefs.isBiometricEnabled,
+                    isScreenshotProtectionEnabled = prefs.screenshotProtectionEnabled,
                     autoLockTimeoutSeconds = prefs.autoLockTimeoutSeconds,
                     terminalColorScheme = prefs.terminalColorScheme,
                     terminalFont = prefs.terminalFont,
@@ -149,6 +154,12 @@ class SettingsViewModel
             }
         }
 
+        fun setScreenshotProtectionEnabled(enabled: Boolean) {
+            viewModelScope.launch {
+                settingsRepository.setScreenshotProtectionEnabled(enabled)
+            }
+        }
+
         fun setTerminalColorScheme(id: String) {
             viewModelScope.launch {
                 settingsRepository.setTerminalColorScheme(id)
@@ -182,6 +193,7 @@ private data class SettingsPreferences(
     val languageTag: String,
     val themePresetId: String,
     val autoLockTimeoutSeconds: Int,
+    val screenshotProtectionEnabled: Boolean,
     val terminalColorScheme: String,
     val terminalFont: String,
     val clipboardTimeoutSeconds: Int,
@@ -197,6 +209,7 @@ private data class BasePreferences(
     val languageTag: String,
     val themePresetId: String,
     val autoLockTimeoutSeconds: Int,
+    val screenshotProtectionEnabled: Boolean,
 )
 
 private data class TerminalPreferences(

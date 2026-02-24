@@ -217,6 +217,7 @@
     <string name="settings_app_lock">App Lock</string>
     <string name="settings_biometric_unlock">Biometric Unlock</string>
     <string name="settings_auto_lock">Auto-lock</string>
+    <string name="settings_prevent_screenshots">Prevent screenshots</string>
     <string name="settings_disabled">Disabled</string>
     <string name="settings_color_scheme">Color Scheme</string>
     <string name="settings_font">Font</string>

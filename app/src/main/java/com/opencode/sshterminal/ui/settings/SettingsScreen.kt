@@ -315,6 +315,12 @@ private fun SecuritySection(
                 value = autoLockLabel,
                 onClick = { showAutoLockDialog = true },
             )
+            SettingsDivider()
+            SettingsSwitchRow(
+                title = stringResource(R.string.settings_prevent_screenshots),
+                checked = state.isScreenshotProtectionEnabled,
+                onToggle = viewModel::setScreenshotProtectionEnabled,
+            )
         }
     }
 

@@ -47,6 +47,7 @@
     <string name="connection_label_host">Host</string>
     <string name="connection_label_proxy_jump_optional">ProxyJump (Optional)</string>
     <string name="connection_proxy_jump_placeholder">e.g. user@bastion:22,jump2</string>
+    <string name="connection_label_forward_agent">Forward SSH Agent</string>
     <string name="connection_proxy_jump_identity_title">ProxyJump Credentials</string>
     <string name="connection_label_port">Port</string>
     <string name="connection_label_username">Username</string>

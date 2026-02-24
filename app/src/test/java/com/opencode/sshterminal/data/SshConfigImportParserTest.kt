@@ -1,6 +1,7 @@
 package com.opencode.sshterminal.data
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -100,5 +101,56 @@ class SshConfigImportParserTest {
         assertNull(dynamic.targetHost)
         assertNull(dynamic.targetPort)
         assertEquals(1080, dynamic.bindPort)
+    }
+
+    @Test
+    fun `global ForwardAgent applies to hosts`() {
+        val content =
+            """
+            ForwardAgent yes
+
+            Host dev
+              HostName dev.example.com
+              User alice
+            """.trimIndent()
+
+        val result = parseSshConfig(content)
+        val host = result.hosts.single()
+
+        assertTrue(host.forwardAgent)
+    }
+
+    @Test
+    fun `host ForwardAgent overrides global default`() {
+        val content =
+            """
+            ForwardAgent yes
+
+            Host prod
+              HostName prod.example.com
+              User root
+              ForwardAgent no
+            """.trimIndent()
+
+        val result = parseSshConfig(content)
+        val host = result.hosts.single()
+
+        assertFalse(host.forwardAgent)
+    }
+
+    @Test
+    fun `invalid ForwardAgent value is ignored`() {
+        val content =
+            """
+            Host misc
+              HostName misc.example.com
+              User me
+              ForwardAgent maybe
+            """.trimIndent()
+
+        val result = parseSshConfig(content)
+        val host = result.hosts.single()
+
+        assertFalse(host.forwardAgent)
     }
 }

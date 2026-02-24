@@ -23,6 +23,7 @@ internal fun ConnectionProfile.toConnectRequest(
         password = identity?.password ?: password,
         privateKeyPath = identity?.privateKeyPath ?: privateKeyPath,
         privateKeyPassphrase = identity?.privateKeyPassphrase ?: privateKeyPassphrase,
+        forwardAgent = forwardAgent,
         proxyJump = proxyJump,
         proxyJumpCredentials = proxyJumpCredentials,
         portForwards = portForwards,

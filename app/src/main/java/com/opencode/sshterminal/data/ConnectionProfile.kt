@@ -13,6 +13,7 @@ data class ConnectionProfile(
     val password: String? = null,
     val privateKeyPath: String? = null,
     val privateKeyPassphrase: String? = null,
+    val forwardAgent: Boolean = false,
     val identityId: String? = null,
     val proxyJump: String? = null,
     val proxyJumpIdentityIds: Map<String, String> = emptyMap(),

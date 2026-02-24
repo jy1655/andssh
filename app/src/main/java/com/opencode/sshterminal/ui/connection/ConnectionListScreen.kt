@@ -39,6 +39,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -567,6 +568,7 @@ private data class ConnectionDraft(
     val startupCommand: String = "",
     val host: String = "",
     val proxyJump: String = "",
+    val forwardAgent: Boolean = false,
     val port: String = "22",
     val username: String = "",
     val password: String = "",
@@ -584,6 +586,7 @@ private fun ConnectionProfile?.toDraft(): ConnectionDraft =
         startupCommand = this?.startupCommand.orEmpty(),
         host = this?.host.orEmpty(),
         proxyJump = this?.proxyJump.orEmpty(),
+        forwardAgent = this?.forwardAgent ?: false,
         port = this?.port?.toString() ?: "22",
         username = this?.username.orEmpty(),
         password = this?.password.orEmpty(),
@@ -612,6 +615,7 @@ private fun ConnectionDraft.toProfileOrNull(
         startupCommand = startupCommand.trim().ifBlank { null },
         host = host,
         proxyJump = proxyJump.trim().ifBlank { null },
+        forwardAgent = forwardAgent,
         port = port.toIntOrNull()?.takeIf { it in 1..65535 } ?: 22,
         username = username,
         password = password.ifBlank { null },
@@ -829,6 +833,19 @@ private fun ConnectionFormFields(
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
     )
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(text = stringResource(R.string.connection_label_forward_agent))
+        Switch(
+            checked = draft.forwardAgent,
+            onCheckedChange = { enabled ->
+                onDraftChange(draft.copy(forwardAgent = enabled))
+            },
+        )
+    }
     ProxyJumpIdentitySection(
         proxyJumpEntries = parseProxyJumpEntries(draft.proxyJump),
         identities = identities,

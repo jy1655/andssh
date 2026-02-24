@@ -1,6 +1,7 @@
 package com.opencode.sshterminal.ssh
 
 import android.util.Log
+import com.hierynomus.sshj.signature.SignatureEdDSA
 import com.opencode.sshterminal.data.PortForwardRule
 import com.opencode.sshterminal.data.PortForwardType
 import com.opencode.sshterminal.data.parseProxyJumpEntries
@@ -10,26 +11,44 @@ import com.opencode.sshterminal.session.HostKeyPolicy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import net.schmizz.sshj.SSHClient
+import net.schmizz.sshj.common.Buffer
+import net.schmizz.sshj.common.KeyType
+import net.schmizz.sshj.common.SSHPacket
 import net.schmizz.sshj.common.SecurityUtils
+import net.schmizz.sshj.connection.Connection
+import net.schmizz.sshj.connection.ConnectionException
+import net.schmizz.sshj.connection.channel.Channel
 import net.schmizz.sshj.connection.channel.direct.DirectConnection
 import net.schmizz.sshj.connection.channel.direct.PTYMode
 import net.schmizz.sshj.connection.channel.direct.Parameters
 import net.schmizz.sshj.connection.channel.direct.Session
+import net.schmizz.sshj.connection.channel.direct.SessionChannel
+import net.schmizz.sshj.connection.channel.forwarded.AbstractForwardedChannel
+import net.schmizz.sshj.connection.channel.forwarded.AbstractForwardedChannelOpener
+import net.schmizz.sshj.connection.channel.forwarded.ConnectListener
 import net.schmizz.sshj.connection.channel.forwarded.RemotePortForwarder
 import net.schmizz.sshj.connection.channel.forwarded.SocketForwardingConnectListener
+import net.schmizz.sshj.signature.Signature
+import net.schmizz.sshj.signature.SignatureDSA
+import net.schmizz.sshj.signature.SignatureECDSA
+import net.schmizz.sshj.signature.SignatureRSA
 import net.schmizz.sshj.transport.verification.OpenSSHKnownHosts
 import net.schmizz.sshj.transport.verification.PromiscuousVerifier
 import java.io.BufferedInputStream
 import java.io.File
+import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
+import java.security.PrivateKey
 import java.security.PublicKey
+import java.util.Base64
 import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 
 class SshjClient : SshClient {
     override suspend fun connect(request: ConnectRequest): SshSession =
@@ -66,8 +85,17 @@ class SshjClient : SshClient {
                 )
                 finalClient = ssh
 
-                val forwardHandles = startPortForwards(ssh, request.portForwards)
-                val session = ssh.startSession()
+                val forwardHandles = startPortForwards(ssh, request.portForwards).toMutableList()
+                val session =
+                    AgentForwardingSessionChannel(
+                        connection = ssh.connection,
+                        remoteCharset = ssh.remoteCharset,
+                    ).apply { open() }
+                startAgentForwarding(
+                    ssh = ssh,
+                    session = session,
+                    request = request,
+                )?.let(forwardHandles::add)
                 sessionReady = true
                 SshjSession(
                     ssh = ssh,
@@ -207,6 +235,103 @@ class SshjClient : SshClient {
                 PortForwardType.DYNAMIC -> startDynamicForward(ssh, rule)
             }
         }
+    }
+
+    private fun startAgentForwarding(
+        ssh: SSHClient,
+        session: AgentForwardingSessionChannel,
+        request: ConnectRequest,
+    ): SshForwardHandle? {
+        if (!request.forwardAgent) return null
+        val identities = loadAgentIdentities(ssh, request)
+        val opener =
+            AgentForwardingChannelOpener(
+                connection = ssh.connection,
+                identities = identities,
+            )
+        ssh.connection.attach(opener)
+        val timeoutMs = ssh.connection.timeoutMs.takeIf { it > 0 } ?: DEFAULT_AGENT_FORWARD_TIMEOUT_MS
+        return runCatching {
+            session.requestAgentForwarding(timeoutMs)
+            Log.i(TAG, "SSH agent forwarding enabled (keys=${identities.size})")
+            AgentForwardingHandle(
+                connection = ssh.connection,
+                opener = opener,
+            )
+        }.onFailure { error ->
+            runCatching { ssh.connection.forget(opener) }
+            Log.w(TAG, "SSH agent forwarding unavailable: ${error.message}")
+        }.getOrNull()
+    }
+
+    private fun loadAgentIdentities(
+        ssh: SSHClient,
+        request: ConnectRequest,
+    ): List<AgentIdentity> {
+        val keySpecs =
+            buildList {
+                request.privateKeyPath?.takeIf { path -> path.isNotBlank() }?.let { path ->
+                    add(AgentKeySpec(path = path, passphrase = request.privateKeyPassphrase))
+                }
+                request.proxyJumpCredentials.values.forEach { credential ->
+                    credential.privateKeyPath?.takeIf { path -> path.isNotBlank() }?.let { path ->
+                        add(AgentKeySpec(path = path, passphrase = credential.privateKeyPassphrase))
+                    }
+                }
+            }
+
+        if (keySpecs.isEmpty()) return emptyList()
+
+        val identities = mutableListOf<AgentIdentity>()
+        val knownBlobs = mutableSetOf<String>()
+        keySpecs.forEach { keySpec ->
+            val keyProvider =
+                runCatching {
+                    if (keySpec.passphrase.isNullOrEmpty()) {
+                        ssh.loadKeys(keySpec.path)
+                    } else {
+                        ssh.loadKeys(keySpec.path, keySpec.passphrase)
+                    }
+                }.onFailure { error ->
+                    Log.w(TAG, "Failed to load agent key `${keySpec.path}`: ${error.message}")
+                }.getOrNull() ?: return@forEach
+
+            val publicKey =
+                runCatching { keyProvider.public }
+                    .onFailure { error ->
+                        Log.w(TAG, "Failed to read public key `${keySpec.path}`: ${error.message}")
+                    }.getOrNull() ?: return@forEach
+
+            val privateKey =
+                runCatching { keyProvider.private }
+                    .onFailure { error ->
+                        Log.w(TAG, "Failed to read private key `${keySpec.path}`: ${error.message}")
+                    }.getOrNull() ?: return@forEach
+
+            val keyType =
+                runCatching { keyProvider.type }
+                    .onFailure { error ->
+                        Log.w(TAG, "Failed to detect key type `${keySpec.path}`: ${error.message}")
+                    }.getOrNull() ?: return@forEach
+
+            if (keyType == KeyType.UNKNOWN) {
+                Log.w(TAG, "Skipping unsupported agent key type for `${keySpec.path}`")
+                return@forEach
+            }
+
+            val publicKeyBlob = Buffer.PlainBuffer().putPublicKey(publicKey).compactData
+            val encodedBlob = Base64.getEncoder().encodeToString(publicKeyBlob)
+            if (!knownBlobs.add(encodedBlob)) return@forEach
+
+            identities +=
+                AgentIdentity(
+                    keyBlob = publicKeyBlob,
+                    comment = File(keySpec.path).name,
+                    privateKey = privateKey,
+                    keyType = keyType,
+                )
+        }
+        return identities
     }
 
     private fun startLocalForward(
@@ -518,11 +643,261 @@ class SshjClient : SshClient {
         val port: Int,
     )
 
+    private data class AgentKeySpec(
+        val path: String,
+        val passphrase: String?,
+    )
+
+    private data class AgentIdentity(
+        val keyBlob: ByteArray,
+        val comment: String,
+        val privateKey: PrivateKey,
+        val keyType: KeyType,
+    )
+
+    private fun signWithAgentIdentity(
+        identity: AgentIdentity,
+        data: ByteArray,
+        flags: Int,
+    ): ByteArray? {
+        val signature = buildAgentSignature(identity.keyType, flags) ?: return null
+        return runCatching {
+            signature.initSign(identity.privateKey)
+            signature.update(data)
+            val encoded = signature.encode(signature.sign())
+            Buffer.PlainBuffer()
+                .putSignature(signature.signatureName, encoded)
+                .compactData
+        }.onFailure { error ->
+            Log.w(TAG, "Agent signing failed for key `${identity.comment}`: ${error.message}")
+        }.getOrNull()
+    }
+
+    private fun buildAgentSignature(
+        keyType: KeyType,
+        flags: Int,
+    ): Signature? {
+        val normalized =
+            when (keyType) {
+                KeyType.RSA_CERT -> KeyType.RSA
+                KeyType.DSA_CERT -> KeyType.DSA
+                KeyType.ECDSA256_CERT -> KeyType.ECDSA256
+                KeyType.ECDSA384_CERT -> KeyType.ECDSA384
+                KeyType.ECDSA521_CERT -> KeyType.ECDSA521
+                KeyType.ED25519_CERT -> KeyType.ED25519
+                else -> keyType
+            }
+        return when (normalized) {
+            KeyType.RSA -> {
+                when {
+                    flags and SSH_AGENT_RSA_SHA2_512_FLAG != 0 -> SignatureRSA.FactoryRSASHA512().create()
+                    flags and SSH_AGENT_RSA_SHA2_256_FLAG != 0 -> SignatureRSA.FactoryRSASHA256().create()
+                    else -> SignatureRSA.FactorySSHRSA().create()
+                }
+            }
+            KeyType.DSA -> SignatureDSA.Factory().create()
+            KeyType.ECDSA256 -> SignatureECDSA.Factory256().create()
+            KeyType.ECDSA384 -> SignatureECDSA.Factory384().create()
+            KeyType.ECDSA521 -> SignatureECDSA.Factory521().create()
+            KeyType.ED25519 -> SignatureEdDSA.Factory().create()
+            else -> null
+        }
+    }
+
+    private inner class AgentForwardingChannelOpener(
+        connection: Connection,
+        private val identities: List<AgentIdentity>,
+    ) : AbstractForwardedChannelOpener(SSH_AGENT_CHANNEL_TYPE, connection) {
+        override fun handleOpen(buffer: SSHPacket) {
+            val channel =
+                try {
+                    AgentForwardedChannel(
+                        connection = conn,
+                        recipient = buffer.readUInt32AsInt(),
+                        remoteWindowSize = buffer.readUInt32(),
+                        remoteMaxPacketSize = buffer.readUInt32(),
+                    )
+                } catch (error: Buffer.BufferException) {
+                    throw ConnectionException(error)
+                }
+            callListener(
+                AgentForwardingConnectListener(
+                    identities = identities,
+                    sign = ::signWithAgentIdentity,
+                ),
+                channel,
+            )
+        }
+    }
+
+    private inner class AgentForwardingHandle(
+        private val connection: Connection,
+        private val opener: AgentForwardingChannelOpener,
+    ) : SshForwardHandle {
+        override fun close() {
+            runCatching { connection.forget(opener) }
+        }
+    }
+
+    private class AgentForwardingSessionChannel(
+        connection: Connection,
+        remoteCharset: java.nio.charset.Charset,
+    ) : SessionChannel(connection, remoteCharset) {
+        fun requestAgentForwarding(timeoutMs: Int) {
+            sendChannelRequest(
+                SSH_AGENT_REQUEST_TYPE,
+                true,
+                Buffer.PlainBuffer(),
+            ).await(timeoutMs.coerceAtLeast(1).toLong(), TimeUnit.MILLISECONDS)
+        }
+    }
+
+    private class AgentForwardedChannel(
+        connection: Connection,
+        recipient: Int,
+        remoteWindowSize: Long,
+        remoteMaxPacketSize: Long,
+    ) : AbstractForwardedChannel(
+            connection,
+            SSH_AGENT_CHANNEL_TYPE,
+            recipient,
+            remoteWindowSize,
+            remoteMaxPacketSize,
+            "127.0.0.1",
+            0,
+        )
+
+    private class AgentForwardingConnectListener(
+        private val identities: List<AgentIdentity>,
+        private val sign: (AgentIdentity, ByteArray, Int) -> ByteArray?,
+    ) : ConnectListener {
+        override fun gotConnect(channel: Channel.Forwarded) {
+            try {
+                channel.confirm()
+                val input = channel.inputStream
+                val output = channel.outputStream
+                while (true) {
+                    val requestPayload = readAgentPacket(input) ?: break
+                    val responsePayload = handleAgentPacket(requestPayload)
+                    writeAgentPacket(output, responsePayload)
+                }
+            } catch (error: IOException) {
+                throw error
+            } catch (error: Throwable) {
+                throw IOException("SSH agent channel failed", error)
+            } finally {
+                runCatching { channel.close() }
+            }
+        }
+
+        private fun handleAgentPacket(payload: ByteArray): ByteArray {
+            val packet = Buffer.PlainBuffer(payload)
+            return try {
+                when (packet.readByte().toInt() and 0xFF) {
+                    SSH_AGENT_REQUEST_IDENTITIES -> buildIdentitiesResponse()
+                    SSH_AGENT_SIGN_REQUEST -> buildSignResponse(packet)
+                    else -> failureResponse()
+                }
+            } catch (_: Buffer.BufferException) {
+                failureResponse()
+            }
+        }
+
+        private fun buildIdentitiesResponse(): ByteArray {
+            val response = Buffer.PlainBuffer()
+            response.putByte(SSH_AGENT_IDENTITIES_ANSWER.toByte())
+            response.putUInt32FromInt(identities.size)
+            identities.forEach { identity ->
+                response.putString(identity.keyBlob)
+                response.putString(identity.comment)
+            }
+            return response.compactData
+        }
+
+        private fun buildSignResponse(packet: Buffer.PlainBuffer): ByteArray {
+            val keyBlob =
+                try {
+                    packet.readStringAsBytes()
+                } catch (_: Buffer.BufferException) {
+                    return failureResponse()
+                }
+            val data =
+                try {
+                    packet.readStringAsBytes()
+                } catch (_: Buffer.BufferException) {
+                    return failureResponse()
+                }
+            val flags =
+                try {
+                    packet.readUInt32AsInt()
+                } catch (_: Buffer.BufferException) {
+                    return failureResponse()
+                }
+            val identity = identities.firstOrNull { candidate -> candidate.keyBlob.contentEquals(keyBlob) } ?: return failureResponse()
+            val signatureBlob = sign(identity, data, flags) ?: return failureResponse()
+            return Buffer.PlainBuffer()
+                .putByte(SSH_AGENT_SIGN_RESPONSE.toByte())
+                .putString(signatureBlob)
+                .compactData
+        }
+
+        private fun failureResponse(): ByteArray = byteArrayOf(SSH_AGENT_FAILURE.toByte())
+
+        private fun readAgentPacket(input: InputStream): ByteArray? {
+            val b0 = input.read()
+            if (b0 < 0) return null
+            val b1 = input.read()
+            val b2 = input.read()
+            val b3 = input.read()
+            if (b1 < 0 || b2 < 0 || b3 < 0) {
+                throw IOException("Unexpected EOF while reading SSH agent header")
+            }
+            val size = (b0 shl 24) or (b1 shl 16) or (b2 shl 8) or b3
+            if (size <= 0 || size > SSH_AGENT_MAX_PACKET_SIZE) {
+                throw IOException("Invalid SSH agent packet size: $size")
+            }
+            val payload = ByteArray(size)
+            var offset = 0
+            while (offset < size) {
+                val read = input.read(payload, offset, size - offset)
+                if (read < 0) {
+                    throw IOException("Unexpected EOF while reading SSH agent payload")
+                }
+                offset += read
+            }
+            return payload
+        }
+
+        private fun writeAgentPacket(
+            output: OutputStream,
+            payload: ByteArray,
+        ) {
+            val size = payload.size
+            output.write((size ushr 24) and 0xFF)
+            output.write((size ushr 16) and 0xFF)
+            output.write((size ushr 8) and 0xFF)
+            output.write(size and 0xFF)
+            output.write(payload)
+            output.flush()
+        }
+    }
+
     companion object {
         private const val TAG = "SshjClient"
         private const val DEFAULT_LOCAL_FORWARD_BIND_HOST = "127.0.0.1"
         private const val DEFAULT_REMOTE_FORWARD_BIND_HOST = "127.0.0.1"
         private const val DYNAMIC_FORWARD_HANDSHAKE_TIMEOUT_MS = 15_000
+        private const val DEFAULT_AGENT_FORWARD_TIMEOUT_MS = 15_000
+        private const val SSH_AGENT_CHANNEL_TYPE = "auth-agent@openssh.com"
+        private const val SSH_AGENT_REQUEST_TYPE = "auth-agent-req@openssh.com"
+        private const val SSH_AGENT_MAX_PACKET_SIZE = 262_144
+        private const val SSH_AGENT_FAILURE = 5
+        private const val SSH_AGENT_REQUEST_IDENTITIES = 11
+        private const val SSH_AGENT_IDENTITIES_ANSWER = 12
+        private const val SSH_AGENT_SIGN_REQUEST = 13
+        private const val SSH_AGENT_SIGN_RESPONSE = 14
+        private const val SSH_AGENT_RSA_SHA2_256_FLAG = 0x02
+        private const val SSH_AGENT_RSA_SHA2_512_FLAG = 0x04
         private const val SOCKS5_VERSION = 5
         private const val SOCKS5_AUTH_NO_AUTH = 0
         private const val SOCKS5_AUTH_NO_ACCEPTABLE = 0xFF

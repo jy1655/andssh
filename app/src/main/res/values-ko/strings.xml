@@ -47,6 +47,7 @@
     <string name="connection_label_host">호스트</string>
     <string name="connection_label_proxy_jump_optional">ProxyJump (선택)</string>
     <string name="connection_proxy_jump_placeholder">예: user@bastion:22,jump2</string>
+    <string name="connection_label_forward_agent">SSH 에이전트 전달</string>
     <string name="connection_proxy_jump_identity_title">ProxyJump 자격증명</string>
     <string name="connection_label_port">포트</string>
     <string name="connection_label_username">사용자명</string>

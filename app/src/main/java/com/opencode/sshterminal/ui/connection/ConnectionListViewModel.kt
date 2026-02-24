@@ -137,6 +137,7 @@ class ConnectionListViewModel
                             privateKeyPath = identity.privateKeyPath,
                             privateKeyPassphrase = identity.privateKeyPassphrase,
                             identityId = identity.id,
+                            forwardAgent = importedHost.forwardAgent,
                             proxyJump = importedHost.proxyJump,
                             portForwards = importedHost.portForwards,
                             lastUsedEpochMillis = existing?.lastUsedEpochMillis ?: System.currentTimeMillis(),

@@ -39,6 +39,7 @@ data class ConnectRequest(
     val password: String? = null,
     val privateKeyPath: String? = null,
     val privateKeyPassphrase: String? = null,
+    val forwardAgent: Boolean = false,
     val proxyJump: String? = null,
     val proxyJumpCredentials: Map<String, JumpCredential> = emptyMap(),
     val portForwards: List<PortForwardRule> = emptyList(),

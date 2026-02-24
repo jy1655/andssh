@@ -97,6 +97,9 @@ fun TerminalScreen(
                 forwardFormatter = { count ->
                     context.getString(R.string.terminal_connection_forwards, count)
                 },
+                moreForwardFormatter = { count ->
+                    context.getString(R.string.terminal_connection_forwards_more, count)
+                },
             ).orEmpty()
     val screenModel =
         TerminalScreenModel(

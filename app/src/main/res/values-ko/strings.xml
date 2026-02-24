@@ -90,6 +90,7 @@
     <string name="terminal_update_known_hosts">known_hosts 업데이트</string>
     <string name="terminal_connection_proxy_jump">ProxyJump 홉: %1$d</string>
     <string name="terminal_connection_forwards">포워딩 규칙: %1$d</string>
+    <string name="terminal_connection_forwards_more">추가 %1$d개</string>
 
     <string name="sftp_browser_title">SFTP 탐색기</string>
     <string name="sftp_back">뒤로</string>

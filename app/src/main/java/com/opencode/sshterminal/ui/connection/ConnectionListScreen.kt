@@ -58,6 +58,7 @@ import com.opencode.sshterminal.R
 import com.opencode.sshterminal.data.ConnectionIdentity
 import com.opencode.sshterminal.data.ConnectionProfile
 import com.opencode.sshterminal.data.PortForwardRule
+import com.opencode.sshterminal.data.PortForwardType
 import com.opencode.sshterminal.data.ProxyJumpEntry
 import com.opencode.sshterminal.data.parseProxyJumpEntries
 import com.opencode.sshterminal.data.proxyJumpHostPortKey
@@ -458,6 +459,14 @@ private fun ConnectionBottomSheet(
                 onDraftChange = { draft = it },
                 onPickPrivateKey = privateKeyPicker,
                 onClearPrivateKey = { draft = draft.copy(privateKeyPath = "", privateKeyPassphrase = "") },
+                onAddPortForwardRule = { rule ->
+                    draft = draft.copy(portForwards = draft.portForwards + rule)
+                },
+                onRemovePortForwardRuleAt = { index ->
+                    if (index in draft.portForwards.indices) {
+                        draft = draft.copy(portForwards = draft.portForwards.toMutableList().also { it.removeAt(index) })
+                    }
+                },
                 onClearPortForwards = { draft = draft.copy(portForwards = emptyList()) },
             )
 
@@ -492,6 +501,8 @@ private fun ConnectionFormFields(
     onDraftChange: (ConnectionDraft) -> Unit,
     onPickPrivateKey: () -> Unit,
     onClearPrivateKey: () -> Unit,
+    onAddPortForwardRule: (PortForwardRule) -> Unit,
+    onRemovePortForwardRuleAt: (Int) -> Unit,
     onClearPortForwards: () -> Unit,
 ) {
     if (identities.isNotEmpty()) {
@@ -552,6 +563,8 @@ private fun ConnectionFormFields(
     )
     PortForwardRulesSection(
         rules = draft.portForwards,
+        onAddRule = onAddPortForwardRule,
+        onRemoveRuleAt = onRemovePortForwardRuleAt,
         onClear = onClearPortForwards,
     )
     OutlinedTextField(
@@ -653,9 +666,11 @@ private fun ProxyJumpIdentitySection(
 @Composable
 private fun PortForwardRulesSection(
     rules: List<PortForwardRule>,
+    onAddRule: (PortForwardRule) -> Unit,
+    onRemoveRuleAt: (Int) -> Unit,
     onClear: () -> Unit,
 ) {
-    if (rules.isEmpty()) return
+    var showAddDialog by remember { mutableStateOf(false) }
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -666,16 +681,171 @@ private fun PortForwardRulesSection(
             text = stringResource(R.string.connection_port_forward_rules_title),
             style = MaterialTheme.typography.labelLarge,
         )
-        TextButton(onClick = onClear) {
-            Text(stringResource(R.string.connection_clear_port_forward_rules))
+        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            TextButton(onClick = { showAddDialog = true }) {
+                Text(stringResource(R.string.connection_add_port_forward_rule))
+            }
+            if (rules.isNotEmpty()) {
+                TextButton(onClick = onClear) {
+                    Text(stringResource(R.string.connection_clear_port_forward_rules))
+                }
+            }
         }
     }
-    rules.forEach { rule ->
+    if (rules.isEmpty()) {
         Text(
-            text = formatPortForwardRuleDisplay(rule),
+            text = stringResource(R.string.connection_port_forward_rules_empty),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    } else {
+        rules.forEachIndexed { index, rule ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = formatPortForwardRuleDisplay(rule),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                TextButton(onClick = { onRemoveRuleAt(index) }) {
+                    Text(stringResource(R.string.common_delete))
+                }
+            }
+        }
+    }
+
+    if (showAddDialog) {
+        AddPortForwardRuleDialog(
+            onDismiss = { showAddDialog = false },
+            onAdd = { rule ->
+                onAddRule(rule)
+                showAddDialog = false
+            },
+        )
+    }
+}
+
+@Composable
+private fun AddPortForwardRuleDialog(
+    onDismiss: () -> Unit,
+    onAdd: (PortForwardRule) -> Unit,
+) {
+    var type by remember { mutableStateOf(PortForwardType.LOCAL) }
+    var bindHost by remember { mutableStateOf("") }
+    var bindPort by remember { mutableStateOf("") }
+    var targetHost by remember { mutableStateOf("") }
+    var targetPort by remember { mutableStateOf("") }
+
+    val candidate =
+        buildPortForwardRule(
+            type = type,
+            bindHostInput = bindHost,
+            bindPortInput = bindPort,
+            targetHostInput = targetHost,
+            targetPortInput = targetPort,
+        )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.connection_port_forward_add_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                PortForwardTypeSelector(
+                    selectedType = type,
+                    onSelect = { selected ->
+                        type = selected
+                    },
+                )
+                OutlinedTextField(
+                    value = bindHost,
+                    onValueChange = { bindHost = it },
+                    label = { Text(stringResource(R.string.connection_port_forward_bind_host_optional)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                OutlinedTextField(
+                    value = bindPort,
+                    onValueChange = { bindPort = it },
+                    label = { Text(stringResource(R.string.connection_port_forward_bind_port)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                if (type != PortForwardType.DYNAMIC) {
+                    OutlinedTextField(
+                        value = targetHost,
+                        onValueChange = { targetHost = it },
+                        label = { Text(stringResource(R.string.connection_port_forward_target_host)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    OutlinedTextField(
+                        value = targetPort,
+                        onValueChange = { targetPort = it },
+                        label = { Text(stringResource(R.string.connection_port_forward_target_port)) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { candidate?.let(onAdd) },
+                enabled = candidate != null,
+            ) {
+                Text(stringResource(R.string.connection_add_port_forward_rule))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.common_cancel))
+            }
+        },
+    )
+}
+
+@Composable
+private fun PortForwardTypeSelector(
+    selectedType: PortForwardType,
+    onSelect: (PortForwardType) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedLabel = portForwardTypeLabel(selectedType)
+
+    Box(modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(
+            onClick = { expanded = true },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("${stringResource(R.string.connection_port_forward_type_label)}: $selectedLabel")
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            PortForwardType.values().forEach { type ->
+                DropdownMenuItem(
+                    text = { Text(portForwardTypeLabel(type)) },
+                    onClick = {
+                        expanded = false
+                        onSelect(type)
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun portForwardTypeLabel(type: PortForwardType): String {
+    return when (type) {
+        PortForwardType.LOCAL -> stringResource(R.string.connection_port_forward_type_local)
+        PortForwardType.REMOTE -> stringResource(R.string.connection_port_forward_type_remote)
+        PortForwardType.DYNAMIC -> stringResource(R.string.connection_port_forward_type_dynamic)
     }
 }
 

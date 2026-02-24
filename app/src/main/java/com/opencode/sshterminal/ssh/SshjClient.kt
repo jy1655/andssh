@@ -6,6 +6,7 @@ import com.opencode.sshterminal.data.PortForwardRule
 import com.opencode.sshterminal.data.PortForwardType
 import com.opencode.sshterminal.data.parseProxyJumpEntries
 import com.opencode.sshterminal.data.proxyJumpHostPortKey
+import com.opencode.sshterminal.security.withZeroizedChars
 import com.opencode.sshterminal.session.ConnectRequest
 import com.opencode.sshterminal.session.HostKeyPolicy
 import kotlinx.coroutines.Dispatchers
@@ -332,11 +333,7 @@ class SshjClient : SshClient {
         keySpecs.forEach { keySpec ->
             val keyProvider =
                 runCatching {
-                    if (keySpec.passphrase.isNullOrEmpty()) {
-                        ssh.loadKeys(keySpec.path)
-                    } else {
-                        ssh.loadKeys(keySpec.path, keySpec.passphrase)
-                    }
+                    loadAgentKeyProvider(ssh, keySpec)
                 }.onFailure { error ->
                     Log.w(TAG, "Failed to load agent key `${keySpec.path}`: ${error.message}")
                 }.getOrNull() ?: return@forEach
@@ -377,6 +374,17 @@ class SshjClient : SshClient {
                 )
         }
         return identities
+    }
+
+    private fun loadAgentKeyProvider(
+        ssh: SSHClient,
+        keySpec: AgentKeySpec,
+    ) = if (keySpec.passphrase.isNullOrEmpty()) {
+        ssh.loadKeys(keySpec.path)
+    } else {
+        withZeroizedChars(keySpec.passphrase) { passphraseChars ->
+            ssh.loadKeys(keySpec.path, requireNotNull(passphraseChars))
+        }
     }
 
     private fun startLocalForward(

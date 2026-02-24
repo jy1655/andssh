@@ -27,18 +27,31 @@ class KeyRepositoryImpl
             alias: String,
             privateKeyPem: ByteArray,
         ) {
+            val plaintextCopy = privateKeyPem.copyOf()
+            var iv: ByteArray? = null
+            var encryptedBytes: ByteArray? = null
+            var combined: ByteArray? = null
             ensureDirectoryExists()
-            val cipher = Cipher.getInstance(TRANSFORMATION)
-            cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey())
-            val iv = cipher.iv
-            val encryptedBytes = cipher.doFinal(privateKeyPem)
+            try {
+                val cipher = Cipher.getInstance(TRANSFORMATION)
+                cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey())
+                val ivBytes = cipher.iv
+                val encrypted = cipher.doFinal(plaintextCopy)
+                iv = ivBytes
+                encryptedBytes = encrypted
 
-            val combined = ByteArray(1 + iv.size + encryptedBytes.size)
-            combined[0] = iv.size.toByte()
-            System.arraycopy(iv, 0, combined, 1, iv.size)
-            System.arraycopy(encryptedBytes, 0, combined, 1 + iv.size, encryptedBytes.size)
+                combined = ByteArray(1 + ivBytes.size + encrypted.size)
+                combined[0] = ivBytes.size.toByte()
+                System.arraycopy(ivBytes, 0, combined, 1, ivBytes.size)
+                System.arraycopy(encrypted, 0, combined, 1 + ivBytes.size, encrypted.size)
 
-            fileForAlias(alias).writeBytes(combined)
+                fileForAlias(alias).writeBytes(combined)
+            } finally {
+                plaintextCopy.zeroize()
+                iv?.zeroize()
+                encryptedBytes?.zeroize()
+                combined?.zeroize()
+            }
         }
 
         override suspend fun loadEncryptedPrivateKey(alias: String): ByteArray? {
@@ -49,20 +62,26 @@ class KeyRepositoryImpl
 
             return try {
                 val combined = file.readBytes()
-                if (combined.isEmpty()) {
-                    return null
-                }
+                if (combined.isEmpty()) return null
+                try {
+                    val ivLen = combined[0].toInt() and 0xFF
+                    if (ivLen <= 0 || combined.size <= 1 + ivLen) {
+                        return null
+                    }
 
-                val ivLen = combined[0].toInt() and 0xFF
-                if (ivLen <= 0 || combined.size <= 1 + ivLen) {
-                    return null
+                    val iv = combined.copyOfRange(1, 1 + ivLen)
+                    val ciphertext = combined.copyOfRange(1 + ivLen, combined.size)
+                    try {
+                        val cipher = Cipher.getInstance(TRANSFORMATION)
+                        cipher.init(Cipher.DECRYPT_MODE, getOrCreateKey(), GCMParameterSpec(GCM_TAG_BITS, iv))
+                        cipher.doFinal(ciphertext)
+                    } finally {
+                        iv.zeroize()
+                        ciphertext.zeroize()
+                    }
+                } finally {
+                    combined.zeroize()
                 }
-
-                val iv = combined.copyOfRange(1, 1 + ivLen)
-                val ciphertext = combined.copyOfRange(1 + ivLen, combined.size)
-                val cipher = Cipher.getInstance(TRANSFORMATION)
-                cipher.init(Cipher.DECRYPT_MODE, getOrCreateKey(), GCMParameterSpec(GCM_TAG_BITS, iv))
-                cipher.doFinal(ciphertext)
             } catch (_: IOException) {
                 null
             } catch (_: GeneralSecurityException) {

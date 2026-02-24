@@ -1,6 +1,7 @@
 package com.opencode.sshterminal.ssh
 
 import com.hierynomus.sshj.common.KeyDecryptionFailedException
+import com.opencode.sshterminal.security.withZeroizedChars
 import com.opencode.sshterminal.session.ConnectRequest
 import net.schmizz.sshj.SSHClient
 import net.schmizz.sshj.common.Buffer
@@ -14,7 +15,10 @@ import java.util.Base64
 
 internal fun SSHClient.authenticate(request: ConnectRequest) {
     when {
-        !request.password.isNullOrEmpty() -> authPassword(request.username, request.password)
+        !request.password.isNullOrEmpty() ->
+            withZeroizedChars(request.password) { passwordChars ->
+                authPassword(request.username, requireNotNull(passwordChars))
+            }
         !request.privateKeyPath.isNullOrEmpty() -> {
             val keyProvider = loadKeyProviderForAuth(request)
             try {
@@ -39,7 +43,9 @@ private fun SSHClient.loadKeyProviderForAuth(request: ConnectRequest) =
                 if (privateKeyPassphrase.isNullOrEmpty()) {
                     loadKeys(privateKeyPath)
                 } else {
-                    loadKeys(privateKeyPath, privateKeyPassphrase)
+                    withZeroizedChars(privateKeyPassphrase) { passphraseChars ->
+                        loadKeys(privateKeyPath, requireNotNull(passphraseChars))
+                    }
                 }
             }
 
@@ -52,15 +58,12 @@ private fun SSHClient.loadKeyProviderForAuth(request: ConnectRequest) =
             }
 
             else -> {
-                val passphrase = privateKeyPassphrase.toCharArray()
-                try {
+                withZeroizedChars(privateKeyPassphrase) { passphraseChars ->
                     loadKeys(
                         privateKeyPath,
                         certificatePath,
-                        PasswordUtils.createOneOff(passphrase),
+                        PasswordUtils.createOneOff(requireNotNull(passphraseChars)),
                     )
-                } finally {
-                    passphrase.fill('\u0000')
                 }
             }
         }

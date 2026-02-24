@@ -662,6 +662,13 @@ private fun ConnectionDraft.toProfileOrNull(
     )
 }
 
+private fun ConnectionDraft.clearSensitiveFields(): ConnectionDraft {
+    return copy(
+        password = "",
+        privateKeyPassphrase = "",
+    )
+}
+
 private fun connectionRouteSummary(profile: ConnectionProfile): String? {
     val routeTags = mutableListOf<String>()
     if (profile.protocol == ConnectionProtocol.MOSH) {
@@ -711,7 +718,10 @@ private fun ConnectionBottomSheet(
         )
 
     ModalBottomSheet(
-        onDismissRequest = onDismiss,
+        onDismissRequest = {
+            draft = draft.clearSensitiveFields()
+            onDismiss()
+        },
         sheetState = sheetState,
     ) {
         Column(
@@ -797,13 +807,19 @@ private fun ConnectionBottomSheet(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 OutlinedButton(
-                    onClick = onDismiss,
+                    onClick = {
+                        draft = draft.clearSensitiveFields()
+                        onDismiss()
+                    },
                     modifier = Modifier.weight(1f),
                 ) { Text(stringResource(R.string.common_cancel)) }
 
                 Button(
                     onClick = {
-                        draft.toProfileOrNull(initial, selectedIdentityId)?.let(onSave)
+                        draft.toProfileOrNull(initial, selectedIdentityId)?.let { profile ->
+                            draft = draft.clearSensitiveFields()
+                            onSave(profile)
+                        }
                     },
                     modifier = Modifier.weight(1f),
                 ) { Text(stringResource(R.string.common_save)) }

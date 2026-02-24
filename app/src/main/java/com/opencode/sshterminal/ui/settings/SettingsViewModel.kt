@@ -6,6 +6,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.opencode.sshterminal.auth.AuthRepository
 import com.opencode.sshterminal.crash.CrashReportRepository
+import com.opencode.sshterminal.data.ConnectionBackupImportSummary
+import com.opencode.sshterminal.data.ConnectionBackupManager
 import com.opencode.sshterminal.data.SettingsRepository
 import com.opencode.sshterminal.ui.theme.ThemePreset
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -41,6 +43,7 @@ class SettingsViewModel
         private val settingsRepository: SettingsRepository,
         private val authRepository: AuthRepository,
         private val crashReportRepository: CrashReportRepository,
+        private val connectionBackupManager: ConnectionBackupManager,
     ) : ViewModel() {
         private val basePreferencesFlow =
             combine(
@@ -238,6 +241,14 @@ class SettingsViewModel
             viewModelScope.launch {
                 settingsRepository.setTerminalCursorStyle(style)
             }
+        }
+
+        suspend fun exportEncryptedBackup(): String {
+            return connectionBackupManager.exportEncryptedBackup()
+        }
+
+        suspend fun importEncryptedBackup(backupJson: String): ConnectionBackupImportSummary {
+            return connectionBackupManager.importEncryptedBackup(backupJson)
         }
 
         companion object {

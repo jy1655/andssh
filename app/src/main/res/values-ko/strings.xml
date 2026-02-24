@@ -248,6 +248,13 @@
     <string name="settings_ssh_keepalive">SSH Keepalive</string>
     <string name="settings_haptic_feedback">키 햅틱 피드백</string>
     <string name="settings_crash_logs_count">%d개의 보고서</string>
+    <string name="settings_backup_export">연결 백업 내보내기</string>
+    <string name="settings_backup_import">연결 백업 가져오기</string>
+    <string name="settings_backup_value_encrypted">암호화됨</string>
+    <string name="settings_backup_export_success">백업을 내보냈습니다</string>
+    <string name="settings_backup_export_failed">백업 내보내기에 실패했습니다: %1$s</string>
+    <string name="settings_backup_import_success">연결 %1$d개, 자격증명 %2$d개를 가져왔습니다</string>
+    <string name="settings_backup_import_failed">백업 가져오기에 실패했습니다: %1$s</string>
     <string name="settings_timeout_30s">30초</string>
     <string name="settings_timeout_1m">1분</string>
     <string name="settings_timeout_2m">2분</string>

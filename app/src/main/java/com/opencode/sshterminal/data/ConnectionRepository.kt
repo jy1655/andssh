@@ -136,6 +136,26 @@ class ConnectionRepository
             return created
         }
 
+        suspend fun replaceAll(
+            profiles: List<ConnectionProfile>,
+            identities: List<ConnectionIdentity>,
+        ) {
+            dataStore.edit { prefs ->
+                val keysToRemove =
+                    prefs.asMap().keys.filter { key ->
+                        key.name.startsWith(PROFILE_KEY_PREFIX) || key.name.startsWith(IDENTITY_KEY_PREFIX)
+                    }
+                keysToRemove.forEach { key -> prefs.remove(key) }
+
+                identities.forEach { identity ->
+                    prefs[keyForIdentity(identity.id)] = encryptionManager.encrypt(json.encodeToString(identity))
+                }
+                profiles.forEach { profile ->
+                    prefs[keyForProfile(profile.id)] = encryptionManager.encrypt(json.encodeToString(profile))
+                }
+            }
+        }
+
         private suspend fun saveIdentity(identity: ConnectionIdentity) {
             dataStore.edit { prefs ->
                 prefs[keyForIdentity(identity.id)] = encryptionManager.encrypt(json.encodeToString(identity))

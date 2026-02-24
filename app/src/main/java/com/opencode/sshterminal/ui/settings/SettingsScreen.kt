@@ -2,6 +2,9 @@
 
 package com.opencode.sshterminal.ui.settings
 
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -40,11 +43,13 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -59,6 +64,7 @@ import com.opencode.sshterminal.ui.theme.SunsetOrange
 import com.opencode.sshterminal.ui.theme.TerminalGreen
 import com.opencode.sshterminal.ui.theme.ThemePreset
 import com.termux.terminal.TerminalEmulator
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -68,6 +74,8 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
+    val onExportBackup = rememberBackupExportAction(viewModel)
+    val onImportBackup = rememberBackupImportAction(viewModel)
 
     Scaffold(
         topBar = {
@@ -106,11 +114,103 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(24.dp))
             TerminalSection(state = state, viewModel = viewModel)
             Spacer(modifier = Modifier.height(24.dp))
-            AdvancedSection(state = state, onNavigateToCrashLogs = onNavigateToCrashLogs)
+            AdvancedSection(
+                state = state,
+                onNavigateToCrashLogs = onNavigateToCrashLogs,
+                onExportBackup = onExportBackup,
+                onImportBackup = onImportBackup,
+            )
             Spacer(modifier = Modifier.height(24.dp))
             AboutSection()
             Spacer(modifier = Modifier.height(32.dp))
         }
+    }
+}
+
+@Composable
+private fun rememberBackupExportAction(viewModel: SettingsViewModel): () -> Unit {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val launcher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.CreateDocument("application/json"),
+        ) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            scope.launch {
+                runCatching {
+                    val backupJson = viewModel.exportEncryptedBackup()
+                    val output =
+                        context.contentResolver.openOutputStream(uri)
+                            ?: error("Cannot open backup destination")
+                    output.bufferedWriter(Charsets.UTF_8).use { writer ->
+                        writer.write(backupJson)
+                    }
+                }.onSuccess {
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.settings_backup_export_success),
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                }.onFailure { error ->
+                    Toast.makeText(
+                        context,
+                        context.getString(
+                            R.string.settings_backup_export_failed,
+                            error.message ?: "unknown error",
+                        ),
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+            }
+        }
+    return {
+        launcher.launch("andssh-backup-${System.currentTimeMillis()}.json")
+    }
+}
+
+@Composable
+private fun rememberBackupImportAction(viewModel: SettingsViewModel): () -> Unit {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val launcher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.OpenDocument(),
+        ) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            scope.launch {
+                runCatching {
+                    val input =
+                        context.contentResolver.openInputStream(uri)
+                            ?: error("Cannot open selected backup")
+                    val backupJson =
+                        input.bufferedReader(Charsets.UTF_8).use { reader ->
+                            reader.readText()
+                        }
+                    viewModel.importEncryptedBackup(backupJson)
+                }.onSuccess { summary ->
+                    Toast.makeText(
+                        context,
+                        context.getString(
+                            R.string.settings_backup_import_success,
+                            summary.profileCount,
+                            summary.identityCount,
+                        ),
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                }.onFailure { error ->
+                    Toast.makeText(
+                        context,
+                        context.getString(
+                            R.string.settings_backup_import_failed,
+                            error.message ?: "unknown error",
+                        ),
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+            }
+        }
+    return {
+        launcher.launch(arrayOf("application/json", "text/plain", "*/*"))
     }
 }
 
@@ -357,7 +457,8 @@ private fun TerminalSection(
     val cursorStyleOptions =
         listOf(
             TerminalEmulator.TERMINAL_CURSOR_STYLE_BLOCK to stringResource(R.string.settings_cursor_style_block),
-            TerminalEmulator.TERMINAL_CURSOR_STYLE_UNDERLINE to stringResource(R.string.settings_cursor_style_underline),
+            TerminalEmulator.TERMINAL_CURSOR_STYLE_UNDERLINE to
+                stringResource(R.string.settings_cursor_style_underline),
             TerminalEmulator.TERMINAL_CURSOR_STYLE_BAR to stringResource(R.string.settings_cursor_style_bar),
         )
     val cursorStyleLabel =
@@ -485,14 +586,30 @@ private fun TerminalSection(
 private fun AdvancedSection(
     state: SettingsUiState,
     onNavigateToCrashLogs: () -> Unit,
+    onExportBackup: () -> Unit,
+    onImportBackup: () -> Unit,
 ) {
     SectionHeader(stringResource(R.string.settings_advanced_title))
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-        SettingsValueRow(
-            title = stringResource(R.string.settings_crash_logs),
-            value = stringResource(R.string.settings_crash_logs_count, state.crashReportCount),
-            onClick = onNavigateToCrashLogs,
-        )
+        Column {
+            SettingsValueRow(
+                title = stringResource(R.string.settings_backup_export),
+                value = stringResource(R.string.settings_backup_value_encrypted),
+                onClick = onExportBackup,
+            )
+            SettingsDivider()
+            SettingsValueRow(
+                title = stringResource(R.string.settings_backup_import),
+                value = stringResource(R.string.settings_backup_value_encrypted),
+                onClick = onImportBackup,
+            )
+            SettingsDivider()
+            SettingsValueRow(
+                title = stringResource(R.string.settings_crash_logs),
+                value = stringResource(R.string.settings_crash_logs_count, state.crashReportCount),
+                onClick = onNavigateToCrashLogs,
+            )
+        }
     }
 }
 

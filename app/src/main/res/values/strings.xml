@@ -248,6 +248,13 @@
     <string name="settings_ssh_keepalive">SSH Keepalive</string>
     <string name="settings_haptic_feedback">Key Haptic Feedback</string>
     <string name="settings_crash_logs_count">%d reports</string>
+    <string name="settings_backup_export">Export Connections Backup</string>
+    <string name="settings_backup_import">Import Connections Backup</string>
+    <string name="settings_backup_value_encrypted">Encrypted</string>
+    <string name="settings_backup_export_success">Backup exported</string>
+    <string name="settings_backup_export_failed">Backup export failed: %1$s</string>
+    <string name="settings_backup_import_success">Imported %1$d connections, %2$d identities</string>
+    <string name="settings_backup_import_failed">Backup import failed: %1$s</string>
     <string name="settings_timeout_30s">30 seconds</string>
     <string name="settings_timeout_1m">1 minute</string>
     <string name="settings_timeout_2m">2 minutes</string>

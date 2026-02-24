@@ -52,9 +52,15 @@
     <string name="connection_label_private_key_path">개인 키 경로</string>
     <string name="connection_label_private_key_passphrase_optional">개인 키 암호 (선택)</string>
     <string name="connection_pick_private_key">내 파일</string>
+    <string name="connection_generate_private_key">키 생성</string>
+    <string name="connection_generate_private_key_title">SSH 키 생성</string>
+    <string name="connection_generate_private_key_ed25519">ED25519 (권장)</string>
+    <string name="connection_generate_private_key_rsa">RSA-4096</string>
+    <string name="connection_generate_private_key_ecdsa">ECDSA P-256</string>
     <string name="connection_clear_private_key">선택 해제</string>
     <string name="connection_private_key_placeholder">선택된 키 파일 없음</string>
     <string name="connection_private_key_import_failed">개인 키 파일을 불러오지 못했습니다.</string>
+    <string name="connection_private_key_generate_failed">개인 키 파일 생성에 실패했습니다.</string>
     <string name="connection_import_ssh_config">가져오기</string>
     <string name="connection_import_result">%1$d개 호스트를 가져왔습니다</string>
     <string name="connection_import_result_with_skipped">%1$d개 호스트 가져오기 완료, %2$d개 건너뜀</string>

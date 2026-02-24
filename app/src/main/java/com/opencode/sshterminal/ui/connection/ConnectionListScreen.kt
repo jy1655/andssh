@@ -64,6 +64,7 @@ import com.opencode.sshterminal.data.PortForwardType
 import com.opencode.sshterminal.data.ProxyJumpEntry
 import com.opencode.sshterminal.data.parseProxyJumpEntries
 import com.opencode.sshterminal.data.proxyJumpHostPortKey
+import com.opencode.sshterminal.security.SshKeyAlgorithm
 import com.opencode.sshterminal.terminal.TerminalColorSchemePreset
 import java.util.UUID
 
@@ -652,6 +653,12 @@ private fun ConnectionBottomSheet(
                 draft = draft.copy(privateKeyPath = importedPath)
             },
         )
+    val privateKeyGenerator =
+        rememberConnectionPrivateKeyGenerator(
+            onGenerated = { generatedPath ->
+                draft = draft.copy(privateKeyPath = generatedPath, privateKeyPassphrase = "")
+            },
+        )
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -698,6 +705,7 @@ private fun ConnectionBottomSheet(
                 onDraftChange = { draft = it },
                 onPickPrivateKey = privateKeyPicker,
                 onClearPrivateKey = { draft = draft.copy(privateKeyPath = "", privateKeyPassphrase = "") },
+                onGeneratePrivateKey = privateKeyGenerator,
                 onAddPortForwardRule = { rule ->
                     draft = draft.copy(portForwards = draft.portForwards + rule)
                 },
@@ -752,6 +760,7 @@ private fun ConnectionFormFields(
     onDraftChange: (ConnectionDraft) -> Unit,
     onPickPrivateKey: () -> Unit,
     onClearPrivateKey: () -> Unit,
+    onGeneratePrivateKey: (SshKeyAlgorithm) -> Unit,
     onAddPortForwardRule: (PortForwardRule) -> Unit,
     onUpdatePortForwardRuleAt: (Int, PortForwardRule) -> Unit,
     onMovePortForwardRule: (Int, Int) -> Unit,
@@ -871,6 +880,7 @@ private fun ConnectionFormFields(
         onPrivateKeyPassphraseChange = { onDraftChange(draft.copy(privateKeyPassphrase = it)) },
         onPickPrivateKey = onPickPrivateKey,
         onClearPrivateKey = onClearPrivateKey,
+        onGeneratePrivateKey = onGeneratePrivateKey,
     )
 }
 

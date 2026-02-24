@@ -7,13 +7,20 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -21,6 +28,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.opencode.sshterminal.R
+import com.opencode.sshterminal.security.SshKeyAlgorithm
+import com.opencode.sshterminal.security.SshKeyGenerator
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.UUID
 
@@ -45,6 +57,29 @@ internal fun rememberConnectionPrivateKeyPicker(onImported: (String) -> Unit): (
             }
         }
     return { privateKeyPicker.launch("*/*") }
+}
+
+@Composable
+internal fun rememberConnectionPrivateKeyGenerator(onGenerated: (String) -> Unit): (SshKeyAlgorithm) -> Unit {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    return { algorithm ->
+        scope.launch {
+            val generatedPath =
+                withContext(Dispatchers.Default) {
+                    generatePrivateKeyInInternalStorage(context, algorithm)
+                }
+            if (generatedPath != null) {
+                onGenerated(generatedPath)
+            } else {
+                Toast.makeText(
+                    context,
+                    context.getString(R.string.connection_private_key_generate_failed),
+                    Toast.LENGTH_SHORT,
+                ).show()
+            }
+        }
+    }
 }
 
 @Composable
@@ -80,7 +115,10 @@ internal fun ConnectionPrivateKeyField(
     onPrivateKeyPassphraseChange: (String) -> Unit,
     onPickPrivateKey: () -> Unit,
     onClearPrivateKey: () -> Unit,
+    onGeneratePrivateKey: (SshKeyAlgorithm) -> Unit,
 ) {
+    var showGenerateDialog by remember { mutableStateOf(false) }
+
     OutlinedTextField(
         value = privateKeyPath,
         onValueChange = {},
@@ -98,6 +136,9 @@ internal fun ConnectionPrivateKeyField(
         OutlinedButton(onClick = onPickPrivateKey) {
             Text(stringResource(R.string.connection_pick_private_key))
         }
+        OutlinedButton(onClick = { showGenerateDialog = true }) {
+            Text(stringResource(R.string.connection_generate_private_key))
+        }
         if (privateKeyPath.isNotBlank()) {
             TextButton(onClick = onClearPrivateKey) {
                 Text(stringResource(R.string.connection_clear_private_key))
@@ -111,6 +152,46 @@ internal fun ConnectionPrivateKeyField(
         singleLine = true,
         visualTransformation = PasswordVisualTransformation(),
         modifier = Modifier.fillMaxWidth(),
+    )
+
+    if (showGenerateDialog) {
+        GeneratePrivateKeyDialog(
+            onDismiss = { showGenerateDialog = false },
+            onSelectAlgorithm = { algorithm ->
+                showGenerateDialog = false
+                onGeneratePrivateKey(algorithm)
+            },
+        )
+    }
+}
+
+@Composable
+private fun GeneratePrivateKeyDialog(
+    onDismiss: () -> Unit,
+    onSelectAlgorithm: (SshKeyAlgorithm) -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.connection_generate_private_key_title)) },
+        text = {
+            Column {
+                TextButton(onClick = { onSelectAlgorithm(SshKeyAlgorithm.ED25519) }) {
+                    Text(stringResource(R.string.connection_generate_private_key_ed25519))
+                }
+                TextButton(onClick = { onSelectAlgorithm(SshKeyAlgorithm.RSA) }) {
+                    Text(stringResource(R.string.connection_generate_private_key_rsa))
+                }
+                TextButton(onClick = { onSelectAlgorithm(SshKeyAlgorithm.ECDSA) }) {
+                    Text(stringResource(R.string.connection_generate_private_key_ecdsa))
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.common_cancel))
+            }
+        },
     )
 }
 
@@ -128,6 +209,19 @@ private fun importPrivateKeyToInternalStorage(
                 input.copyTo(output)
             }
         }
+        targetFile.absolutePath
+    }.getOrNull()
+}
+
+private fun generatePrivateKeyInInternalStorage(
+    context: Context,
+    algorithm: SshKeyAlgorithm,
+): String? {
+    return runCatching {
+        val targetDir = File(context.filesDir, "private_keys").apply { mkdirs() }
+        val fileName = "${UUID.randomUUID()}_id_${algorithm.fileNameSuffix}"
+        val targetFile = File(targetDir, fileName)
+        targetFile.writeText(SshKeyGenerator.generatePrivateKeyPem(algorithm))
         targetFile.absolutePath
     }.getOrNull()
 }

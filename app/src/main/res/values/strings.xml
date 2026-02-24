@@ -52,9 +52,15 @@
     <string name="connection_label_private_key_path">Private Key Path</string>
     <string name="connection_label_private_key_passphrase_optional">Private Key Passphrase (Optional)</string>
     <string name="connection_pick_private_key">My Files</string>
+    <string name="connection_generate_private_key">Generate Key</string>
+    <string name="connection_generate_private_key_title">Generate SSH Key</string>
+    <string name="connection_generate_private_key_ed25519">ED25519 (Recommended)</string>
+    <string name="connection_generate_private_key_rsa">RSA-4096</string>
+    <string name="connection_generate_private_key_ecdsa">ECDSA P-256</string>
     <string name="connection_clear_private_key">Clear Selection</string>
     <string name="connection_private_key_placeholder">No key file selected</string>
     <string name="connection_private_key_import_failed">Failed to import private key file.</string>
+    <string name="connection_private_key_generate_failed">Failed to generate private key file.</string>
     <string name="connection_import_ssh_config">Import</string>
     <string name="connection_import_result">Imported %1$d host(s)</string>
     <string name="connection_import_result_with_skipped">Imported %1$d host(s), skipped %2$d</string>

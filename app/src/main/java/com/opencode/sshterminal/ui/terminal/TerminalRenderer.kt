@@ -25,6 +25,8 @@ import com.termux.terminal.TerminalEmulator
 import com.termux.terminal.WcWidth
 
 internal const val DEFAULT_FONT_SIZE_SP = 12
+private const val MIN_FONT_SIZE_SP = 8
+private const val MAX_FONT_SIZE_SP = 32
 
 data class TerminalSelection(
     val startRow: Int,
@@ -62,6 +64,7 @@ fun TerminalRenderer(
     bridge: TermuxTerminalBridge,
     terminalColorSchemeId: String,
     terminalFontId: String = TerminalFontPreset.MESLO_NERD.id,
+    terminalFontSizeSp: Int = DEFAULT_FONT_SIZE_SP,
     terminalCursorStyle: Int = TerminalEmulator.DEFAULT_TERMINAL_CURSOR_STYLE,
     modifier: Modifier = Modifier,
     scrollCounters: TerminalScrollCounters = TerminalScrollCounters(),
@@ -69,11 +72,12 @@ fun TerminalRenderer(
 ) {
     val context = LocalContext.current
     val renderVersion by bridge.renderVersion.collectAsState()
+    val resolvedFontSizeSp = terminalFontSizeSp.coerceIn(MIN_FONT_SIZE_SP, MAX_FONT_SIZE_SP)
     val termuxRenderer =
-        remember(context, terminalFontId) {
+        remember(context, terminalFontId, resolvedFontSizeSp) {
             val preset = TerminalFontPreset.fromId(terminalFontId)
             val typeface = ResourcesCompat.getFont(context, preset.fontResId) ?: Typeface.MONOSPACE
-            com.termux.view.TerminalRenderer(DEFAULT_FONT_SIZE_SP, typeface)
+            com.termux.view.TerminalRenderer(resolvedFontSizeSp, typeface)
         }
     val charSize = remember(termuxRenderer) { Size(termuxRenderer.fontWidth, termuxRenderer.fontLineSpacing.toFloat()) }
     var canvasSize by remember { mutableStateOf(IntSize.Zero) }

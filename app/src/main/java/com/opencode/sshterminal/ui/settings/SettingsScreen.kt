@@ -343,12 +343,14 @@ private fun TerminalSection(
 ) {
     var showSchemeDialog by remember { mutableStateOf(false) }
     var showFontDialog by remember { mutableStateOf(false) }
+    var showFontSizeDialog by remember { mutableStateOf(false) }
     var showCursorDialog by remember { mutableStateOf(false) }
     var showClipboardDialog by remember { mutableStateOf(false) }
     var showKeepaliveDialog by remember { mutableStateOf(false) }
 
     val schemeOptions = TerminalColorSchemePreset.entries.map { it.id to it.displayName }
     val fontOptions = TerminalFontPreset.entries.map { it.id to it.displayName }
+    val fontSizeOptions = listOf(10, 12, 14, 16, 18, 20).map { size -> size to stringResource(R.string.settings_font_size_value, size) }
     val cursorStyleOptions =
         listOf(
             TerminalEmulator.TERMINAL_CURSOR_STYLE_BLOCK to stringResource(R.string.settings_cursor_style_block),
@@ -395,6 +397,12 @@ private fun TerminalSection(
             )
             SettingsDivider()
             SettingsValueRow(
+                title = stringResource(R.string.settings_font_size),
+                value = stringResource(R.string.settings_font_size_value, state.terminalFontSizeSp),
+                onClick = { showFontSizeDialog = true },
+            )
+            SettingsDivider()
+            SettingsValueRow(
                 title = stringResource(R.string.settings_cursor_style),
                 value = cursorStyleLabel,
                 onClick = { showCursorDialog = true },
@@ -435,6 +443,14 @@ private fun TerminalSection(
         selected = state.terminalFont,
         onSelected = viewModel::setTerminalFont,
         onDismiss = { showFontDialog = false },
+    )
+    SelectionDialog(
+        show = showFontSizeDialog,
+        title = stringResource(R.string.settings_font_size),
+        options = fontSizeOptions,
+        selected = state.terminalFontSizeSp,
+        onSelected = viewModel::setTerminalFontSizeSp,
+        onDismiss = { showFontSizeDialog = false },
     )
     SelectionDialog(
         show = showCursorDialog,

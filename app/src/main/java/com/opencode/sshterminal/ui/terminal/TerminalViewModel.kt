@@ -112,6 +112,14 @@ class TerminalViewModel
                     SettingsRepository.DEFAULT_TERMINAL_FONT,
                 )
 
+        val terminalFontSizeSp: StateFlow<Int> =
+            settingsRepository.terminalFontSizeSp
+                .stateIn(
+                    viewModelScope,
+                    SharingStarted.WhileSubscribed(STATE_FLOW_TIMEOUT_MS),
+                    SettingsRepository.DEFAULT_TERMINAL_FONT_SIZE_SP,
+                )
+
         val sshKeepaliveIntervalSeconds: StateFlow<Int> =
             settingsRepository.sshKeepaliveIntervalSeconds
                 .stateIn(

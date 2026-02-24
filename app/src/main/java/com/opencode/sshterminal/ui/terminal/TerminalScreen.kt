@@ -74,6 +74,7 @@ fun TerminalScreen(
     val commandHistory by viewModel.commandHistory.collectAsState()
     val terminalColorSchemeId by viewModel.terminalColorSchemeId.collectAsState()
     val terminalFontId by viewModel.terminalFont.collectAsState()
+    val terminalFontSizeSp by viewModel.terminalFontSizeSp.collectAsState()
     val terminalHapticFeedbackEnabled by viewModel.terminalHapticFeedbackEnabled.collectAsState()
     val terminalCursorStyle by viewModel.terminalCursorStyle.collectAsState()
     var hadTabs by remember { mutableStateOf(false) }
@@ -119,6 +120,7 @@ fun TerminalScreen(
             connectionInfo = connectionInfo,
             terminalColorSchemeId = activeColorSchemeId,
             terminalFontId = terminalFontId,
+            terminalFontSizeSp = terminalFontSizeSp,
             terminalHapticFeedbackEnabled = terminalHapticFeedbackEnabled,
             terminalCursorStyle = terminalCursorStyle,
             isFocusMode = isFocusMode,
@@ -192,6 +194,7 @@ private data class TerminalScreenModel(
     val connectionInfo: String,
     val terminalColorSchemeId: String,
     val terminalFontId: String,
+    val terminalFontSizeSp: Int,
     val terminalHapticFeedbackEnabled: Boolean,
     val terminalCursorStyle: Int,
     val isFocusMode: Boolean,
@@ -323,6 +326,7 @@ private fun TerminalMainColumn(
             bridge = viewModel.bridge,
             terminalColorSchemeId = model.terminalColorSchemeId,
             terminalFontId = model.terminalFontId,
+            terminalFontSizeSp = model.terminalFontSizeSp,
             terminalCursorStyle = model.terminalCursorStyle,
             modifier =
                 Modifier

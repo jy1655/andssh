@@ -228,6 +228,8 @@
     <string name="settings_disabled">Disabled</string>
     <string name="settings_color_scheme">Color Scheme</string>
     <string name="settings_font">Font</string>
+    <string name="settings_font_size">Font Size</string>
+    <string name="settings_font_size_value">%1$d sp</string>
     <string name="settings_cursor_style">Cursor Style</string>
     <string name="settings_cursor_style_block">Block</string>
     <string name="settings_cursor_style_underline">Underline</string>

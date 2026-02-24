@@ -228,6 +228,8 @@
     <string name="settings_disabled">비활성화</string>
     <string name="settings_color_scheme">색상 스킴</string>
     <string name="settings_font">폰트</string>
+    <string name="settings_font_size">폰트 크기</string>
+    <string name="settings_font_size_value">%1$d sp</string>
     <string name="settings_cursor_style">커서 스타일</string>
     <string name="settings_cursor_style_block">블록</string>
     <string name="settings_cursor_style_underline">밑줄</string>

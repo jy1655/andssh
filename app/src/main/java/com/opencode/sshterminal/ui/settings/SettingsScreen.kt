@@ -337,6 +337,7 @@ private fun TerminalSection(
     var showSchemeDialog by remember { mutableStateOf(false) }
     var showFontDialog by remember { mutableStateOf(false) }
     var showClipboardDialog by remember { mutableStateOf(false) }
+    var showKeepaliveDialog by remember { mutableStateOf(false) }
 
     val schemeOptions = TerminalColorSchemePreset.entries.map { it.id to it.displayName }
     val fontOptions = TerminalFontPreset.entries.map { it.id to it.displayName }
@@ -350,6 +351,16 @@ private fun TerminalSection(
     val clipboardLabel =
         clipboardOptions.firstOrNull { it.first == state.clipboardTimeoutSeconds }?.second
             ?: clipboardOptions[1].second
+    val keepaliveOptions =
+        listOf(
+            0 to stringResource(R.string.settings_disabled),
+            15 to stringResource(R.string.settings_timeout_15s),
+            30 to stringResource(R.string.settings_timeout_30s),
+            60 to stringResource(R.string.settings_timeout_1m),
+        )
+    val keepaliveLabel =
+        keepaliveOptions.firstOrNull { it.first == state.sshKeepaliveIntervalSeconds }?.second
+            ?: keepaliveOptions[1].second
 
     SectionHeader(stringResource(R.string.settings_terminal_title))
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
@@ -370,6 +381,12 @@ private fun TerminalSection(
                 title = stringResource(R.string.settings_clipboard_clear),
                 value = clipboardLabel,
                 onClick = { showClipboardDialog = true },
+            )
+            SettingsDivider()
+            SettingsValueRow(
+                title = stringResource(R.string.settings_ssh_keepalive),
+                value = keepaliveLabel,
+                onClick = { showKeepaliveDialog = true },
             )
         }
     }
@@ -397,6 +414,14 @@ private fun TerminalSection(
         selected = state.clipboardTimeoutSeconds,
         onSelected = viewModel::setClipboardTimeout,
         onDismiss = { showClipboardDialog = false },
+    )
+    SelectionDialog(
+        show = showKeepaliveDialog,
+        title = stringResource(R.string.settings_ssh_keepalive),
+        options = keepaliveOptions,
+        selected = state.sshKeepaliveIntervalSeconds,
+        onSelected = viewModel::setSshKeepaliveInterval,
+        onDismiss = { showKeepaliveDialog = false },
     )
 }
 

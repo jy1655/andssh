@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.opencode.sshterminal.R
 import com.opencode.sshterminal.data.ConnectionProfile
 import com.opencode.sshterminal.data.ConnectionRepository
+import com.opencode.sshterminal.data.SettingsRepository
 import com.opencode.sshterminal.session.JumpCredential
 import com.opencode.sshterminal.session.toConnectRequest
 import com.opencode.sshterminal.sftp.RemoteEntry
@@ -17,6 +18,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -34,6 +36,7 @@ class SftpBrowserViewModel
     constructor(
         private val sftpAdapter: SftpChannelAdapter,
         private val connectionRepository: ConnectionRepository,
+        private val settingsRepository: SettingsRepository,
         @ApplicationContext private val context: Context,
         savedStateHandle: SavedStateHandle,
     ) : ViewModel() {
@@ -47,11 +50,13 @@ class SftpBrowserViewModel
                 val profile = connectionRepository.get(connectionId) ?: return@launch
                 val identity = profile.identityId?.let { identityId -> connectionRepository.getIdentity(identityId) }
                 val proxyJumpCredentials = resolveProxyJumpCredentials(profile)
+                val keepaliveInterval = settingsRepository.sshKeepaliveIntervalSeconds.first()
                 val request =
                     profile.toConnectRequest(
                         context = context,
                         cols = DEFAULT_SFTP_COLS,
                         rows = DEFAULT_SFTP_ROWS,
+                        keepaliveIntervalSeconds = keepaliveInterval,
                         identity = identity,
                         proxyJumpCredentials = proxyJumpCredentials,
                     )

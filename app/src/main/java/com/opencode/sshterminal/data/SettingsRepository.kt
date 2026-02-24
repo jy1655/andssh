@@ -46,6 +46,11 @@ class SettingsRepository
                 prefs[TERMINAL_FONT_KEY] ?: DEFAULT_TERMINAL_FONT
             }
 
+        val sshKeepaliveIntervalSeconds: Flow<Int> =
+            dataStore.data.map { prefs ->
+                prefs[SSH_KEEPALIVE_INTERVAL_SECONDS_KEY] ?: DEFAULT_SSH_KEEPALIVE_INTERVAL
+            }
+
         suspend fun setLanguageTag(tag: String) {
             dataStore.edit { prefs -> prefs[LANGUAGE_TAG_KEY] = tag }
         }
@@ -70,6 +75,10 @@ class SettingsRepository
             dataStore.edit { prefs -> prefs[TERMINAL_FONT_KEY] = fontId }
         }
 
+        suspend fun setSshKeepaliveInterval(seconds: Int) {
+            dataStore.edit { prefs -> prefs[SSH_KEEPALIVE_INTERVAL_SECONDS_KEY] = seconds }
+        }
+
         companion object {
             private val LANGUAGE_TAG_KEY = stringPreferencesKey("pref_language_tag")
             private val THEME_PRESET_KEY = stringPreferencesKey("pref_theme_preset")
@@ -77,11 +86,13 @@ class SettingsRepository
             private val AUTO_LOCK_TIMEOUT_SECONDS_KEY = intPreferencesKey("pref_auto_lock_timeout_seconds")
             private val TERMINAL_COLOR_SCHEME_KEY = stringPreferencesKey("pref_terminal_color_scheme")
             private val TERMINAL_FONT_KEY = stringPreferencesKey("pref_terminal_font")
+            private val SSH_KEEPALIVE_INTERVAL_SECONDS_KEY = intPreferencesKey("pref_ssh_keepalive_interval_seconds")
             const val DEFAULT_LANGUAGE_TAG = ""
             const val DEFAULT_THEME_PRESET = "green"
             const val DEFAULT_CLIPBOARD_TIMEOUT = 30
             const val DEFAULT_AUTO_LOCK_TIMEOUT = 60
             const val DEFAULT_TERMINAL_COLOR_SCHEME = "default"
             const val DEFAULT_TERMINAL_FONT = "meslo_nerd"
+            const val DEFAULT_SSH_KEEPALIVE_INTERVAL = 15
         }
     }

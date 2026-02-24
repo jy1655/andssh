@@ -11,6 +11,7 @@ internal fun ConnectionProfile.toConnectRequest(
     context: Context,
     cols: Int,
     rows: Int,
+    keepaliveIntervalSeconds: Int = 15,
     identity: ConnectionIdentity? = null,
     proxyJumpCredentials: Map<String, JumpCredential> = emptyMap(),
 ): ConnectRequest =
@@ -25,6 +26,7 @@ internal fun ConnectionProfile.toConnectRequest(
         proxyJump = proxyJump,
         proxyJumpCredentials = proxyJumpCredentials,
         portForwards = portForwards,
+        keepaliveIntervalSeconds = keepaliveIntervalSeconds,
         cols = cols,
         rows = rows,
     )

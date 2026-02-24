@@ -89,4 +89,23 @@ class SettingsRepositoryTest {
             assertEquals("ko", repo.languageTag.first())
             assertEquals("ocean", repo.themePresetId.first())
         }
+
+    @Test
+    fun `default ssh keepalive interval is configured value`() =
+        runTest(testDispatcher) {
+            val repo = SettingsRepository(createDataStore())
+            assertEquals(
+                SettingsRepository.DEFAULT_SSH_KEEPALIVE_INTERVAL,
+                repo.sshKeepaliveIntervalSeconds.first(),
+            )
+        }
+
+    @Test
+    fun `setSshKeepaliveInterval persists value`() =
+        runTest(testDispatcher) {
+            val ds = createDataStore()
+            val repo = SettingsRepository(ds)
+            repo.setSshKeepaliveInterval(30)
+            assertEquals(30, repo.sshKeepaliveIntervalSeconds.first())
+        }
 }

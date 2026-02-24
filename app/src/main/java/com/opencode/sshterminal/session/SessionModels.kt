@@ -42,6 +42,7 @@ data class ConnectRequest(
     val proxyJump: String? = null,
     val proxyJumpCredentials: Map<String, JumpCredential> = emptyMap(),
     val portForwards: List<PortForwardRule> = emptyList(),
+    val keepaliveIntervalSeconds: Int = 15,
     val hostKeyPolicy: HostKeyPolicy = HostKeyPolicy.STRICT,
     val termType: String = "xterm-256color",
     val cols: Int,

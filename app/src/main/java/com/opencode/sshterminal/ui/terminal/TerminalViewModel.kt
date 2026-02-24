@@ -101,6 +101,14 @@ class TerminalViewModel
                     SettingsRepository.DEFAULT_TERMINAL_FONT,
                 )
 
+        val sshKeepaliveIntervalSeconds: StateFlow<Int> =
+            settingsRepository.sshKeepaliveIntervalSeconds
+                .stateIn(
+                    viewModelScope,
+                    SharingStarted.WhileSubscribed(STATE_FLOW_TIMEOUT_MS),
+                    SettingsRepository.DEFAULT_SSH_KEEPALIVE_INTERVAL,
+                )
+
         init {
             viewModelScope.launch {
                 sessionManager.hasAnyConnected.collect { anyConnected ->
@@ -130,6 +138,7 @@ class TerminalViewModel
                                 context = context,
                                 cols = DEFAULT_TERMINAL_COLS,
                                 rows = DEFAULT_TERMINAL_ROWS,
+                                keepaliveIntervalSeconds = sshKeepaliveIntervalSeconds.value,
                                 identity = identity,
                                 proxyJumpCredentials = proxyJumpCredentials,
                             ),

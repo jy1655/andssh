@@ -563,6 +563,7 @@ private data class ConnectionDraft(
     val name: String = "",
     val group: String = "",
     val terminalColorSchemeId: String = "",
+    val startupCommand: String = "",
     val host: String = "",
     val proxyJump: String = "",
     val port: String = "22",
@@ -579,6 +580,7 @@ private fun ConnectionProfile?.toDraft(): ConnectionDraft =
         name = this?.name.orEmpty(),
         group = this?.group.orEmpty(),
         terminalColorSchemeId = this?.terminalColorSchemeId.orEmpty(),
+        startupCommand = this?.startupCommand.orEmpty(),
         host = this?.host.orEmpty(),
         proxyJump = this?.proxyJump.orEmpty(),
         port = this?.port?.toString() ?: "22",
@@ -606,6 +608,7 @@ private fun ConnectionDraft.toProfileOrNull(
         name = name.ifBlank { "$username@$host" },
         group = group.trim().ifBlank { null },
         terminalColorSchemeId = terminalColorSchemeId.trim().ifBlank { null },
+        startupCommand = startupCommand.trim().ifBlank { null },
         host = host,
         proxyJump = proxyJump.trim().ifBlank { null },
         port = port.toIntOrNull()?.takeIf { it in 1..65535 } ?: 22,
@@ -782,6 +785,14 @@ private fun ConnectionFormFields(
         onSelectSchemeId = { schemeId ->
             onDraftChange(draft.copy(terminalColorSchemeId = schemeId))
         },
+    )
+    OutlinedTextField(
+        value = draft.startupCommand,
+        onValueChange = { onDraftChange(draft.copy(startupCommand = it)) },
+        label = { Text(stringResource(R.string.connection_label_startup_command_optional)) },
+        placeholder = { Text(stringResource(R.string.connection_startup_command_placeholder)) },
+        maxLines = 3,
+        modifier = Modifier.fillMaxWidth(),
     )
     OutlinedTextField(
         value = draft.host,

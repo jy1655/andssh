@@ -178,6 +178,13 @@ class SessionManager
             connector.sendInputToTab(tabId, bytes)
         }
 
+        fun sendInputToTab(
+            tabId: TabId,
+            bytes: ByteArray,
+        ) {
+            connector.sendInputToTab(tabId, bytes)
+        }
+
         fun resize(
             cols: Int,
             rows: Int,

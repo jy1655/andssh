@@ -19,5 +19,6 @@ data class ConnectionProfile(
     val portForwards: List<PortForwardRule> = emptyList(),
     val group: String? = null,
     val terminalColorSchemeId: String? = null,
+    val startupCommand: String? = null,
     val lastUsedEpochMillis: Long = 0L,
 )

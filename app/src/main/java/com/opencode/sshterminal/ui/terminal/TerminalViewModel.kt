@@ -15,6 +15,7 @@ import com.opencode.sshterminal.service.SshForegroundService
 import com.opencode.sshterminal.session.JumpCredential
 import com.opencode.sshterminal.session.SessionManager
 import com.opencode.sshterminal.session.SessionSnapshot
+import com.opencode.sshterminal.session.SessionState
 import com.opencode.sshterminal.session.TabId
 import com.opencode.sshterminal.session.TabInfo
 import com.opencode.sshterminal.session.toConnectRequest
@@ -23,6 +24,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -118,18 +121,22 @@ class TerminalViewModel
                 val identity = profile.identityId?.let { identityId -> connectionRepository.getIdentity(identityId) }
                 val proxyJumpCredentials = resolveProxyJumpCredentials(profile)
                 connectionRepository.touchLastUsed(profile.id)
-                sessionManager.openTab(
-                    title = profile.name,
-                    connectionId = profile.id,
-                    request =
-                        profile.toConnectRequest(
-                            context = context,
-                            cols = DEFAULT_TERMINAL_COLS,
-                            rows = DEFAULT_TERMINAL_ROWS,
-                            identity = identity,
-                            proxyJumpCredentials = proxyJumpCredentials,
-                        ),
-                )
+                val tabId =
+                    sessionManager.openTab(
+                        title = profile.name,
+                        connectionId = profile.id,
+                        request =
+                            profile.toConnectRequest(
+                                context = context,
+                                cols = DEFAULT_TERMINAL_COLS,
+                                rows = DEFAULT_TERMINAL_ROWS,
+                                identity = identity,
+                                proxyJumpCredentials = proxyJumpCredentials,
+                            ),
+                    )
+                profile.startupCommand?.let { startupCommand ->
+                    scheduleStartupCommand(tabId = tabId, startupCommand = startupCommand)
+                }
             }
         }
 
@@ -144,6 +151,28 @@ class TerminalViewModel
                         privateKeyPassphrase = identity.privateKeyPassphrase,
                     )
             }.toMap()
+        }
+
+        private fun scheduleStartupCommand(
+            tabId: TabId,
+            startupCommand: String,
+        ) {
+            val normalized = startupCommand.trimEnd('\r', '\n')
+            if (normalized.isBlank()) return
+            viewModelScope.launch {
+                val state =
+                    sessionManager.tabs
+                        .map { tabs -> tabs.firstOrNull { info -> info.tabId == tabId }?.state }
+                        .first { tabState ->
+                            tabState == null ||
+                                tabState == SessionState.CONNECTED ||
+                                tabState == SessionState.FAILED ||
+                                tabState == SessionState.DISCONNECTED
+                        }
+                if (state == SessionState.CONNECTED) {
+                    sessionManager.sendInputToTab(tabId, "$normalized\r".toByteArray(Charsets.UTF_8))
+                }
+            }
         }
 
         fun switchTab(tabId: TabId) = sessionManager.switchTab(tabId)

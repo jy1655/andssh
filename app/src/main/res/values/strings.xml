@@ -53,6 +53,7 @@
     <string name="connection_add_port_forward_rule">Add Forward</string>
     <string name="connection_clear_port_forward_rules">Clear Forwards</string>
     <string name="connection_port_forward_add_title">Add Port Forward Rule</string>
+    <string name="connection_port_forward_edit_title">Edit Port Forward Rule</string>
     <string name="connection_port_forward_type_label">Type</string>
     <string name="connection_port_forward_type_local">Local (L)</string>
     <string name="connection_port_forward_type_remote">Remote (R)</string>

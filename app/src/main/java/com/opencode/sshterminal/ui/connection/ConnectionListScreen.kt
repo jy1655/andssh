@@ -462,6 +462,15 @@ private fun ConnectionBottomSheet(
                 onAddPortForwardRule = { rule ->
                     draft = draft.copy(portForwards = draft.portForwards + rule)
                 },
+                onUpdatePortForwardRuleAt = { index, rule ->
+                    if (index in draft.portForwards.indices) {
+                        val updated =
+                            draft.portForwards.toMutableList().also { rules ->
+                                rules[index] = rule
+                            }
+                        draft = draft.copy(portForwards = updated)
+                    }
+                },
                 onRemovePortForwardRuleAt = { index ->
                     if (index in draft.portForwards.indices) {
                         draft = draft.copy(portForwards = draft.portForwards.toMutableList().also { it.removeAt(index) })
@@ -502,6 +511,7 @@ private fun ConnectionFormFields(
     onPickPrivateKey: () -> Unit,
     onClearPrivateKey: () -> Unit,
     onAddPortForwardRule: (PortForwardRule) -> Unit,
+    onUpdatePortForwardRuleAt: (Int, PortForwardRule) -> Unit,
     onRemovePortForwardRuleAt: (Int) -> Unit,
     onClearPortForwards: () -> Unit,
 ) {
@@ -564,6 +574,7 @@ private fun ConnectionFormFields(
     PortForwardRulesSection(
         rules = draft.portForwards,
         onAddRule = onAddPortForwardRule,
+        onUpdateRuleAt = onUpdatePortForwardRuleAt,
         onRemoveRuleAt = onRemovePortForwardRuleAt,
         onClear = onClearPortForwards,
     )
@@ -667,10 +678,12 @@ private fun ProxyJumpIdentitySection(
 private fun PortForwardRulesSection(
     rules: List<PortForwardRule>,
     onAddRule: (PortForwardRule) -> Unit,
+    onUpdateRuleAt: (Int, PortForwardRule) -> Unit,
     onRemoveRuleAt: (Int) -> Unit,
     onClear: () -> Unit,
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
+    var editingRuleIndex by remember { mutableStateOf<Int?>(null) }
 
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -711,6 +724,9 @@ private fun PortForwardRulesSection(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.weight(1f),
                 )
+                TextButton(onClick = { editingRuleIndex = index }) {
+                    Text(stringResource(R.string.connection_edit))
+                }
                 TextButton(onClick = { onRemoveRuleAt(index) }) {
                     Text(stringResource(R.string.common_delete))
                 }
@@ -719,26 +735,45 @@ private fun PortForwardRulesSection(
     }
 
     if (showAddDialog) {
-        AddPortForwardRuleDialog(
+        PortForwardRuleDialog(
+            title = stringResource(R.string.connection_port_forward_add_title),
+            confirmLabel = stringResource(R.string.connection_add_port_forward_rule),
             onDismiss = { showAddDialog = false },
-            onAdd = { rule ->
+            onConfirm = { rule ->
                 onAddRule(rule)
                 showAddDialog = false
+            },
+        )
+    }
+
+    val targetIndex = editingRuleIndex
+    if (targetIndex != null && targetIndex in rules.indices) {
+        PortForwardRuleDialog(
+            title = stringResource(R.string.connection_port_forward_edit_title),
+            confirmLabel = stringResource(R.string.common_save),
+            initialRule = rules[targetIndex],
+            onDismiss = { editingRuleIndex = null },
+            onConfirm = { rule ->
+                onUpdateRuleAt(targetIndex, rule)
+                editingRuleIndex = null
             },
         )
     }
 }
 
 @Composable
-private fun AddPortForwardRuleDialog(
+private fun PortForwardRuleDialog(
+    title: String,
+    confirmLabel: String,
+    initialRule: PortForwardRule? = null,
     onDismiss: () -> Unit,
-    onAdd: (PortForwardRule) -> Unit,
+    onConfirm: (PortForwardRule) -> Unit,
 ) {
-    var type by remember { mutableStateOf(PortForwardType.LOCAL) }
-    var bindHost by remember { mutableStateOf("") }
-    var bindPort by remember { mutableStateOf("") }
-    var targetHost by remember { mutableStateOf("") }
-    var targetPort by remember { mutableStateOf("") }
+    var type by remember(initialRule) { mutableStateOf(initialRule?.type ?: PortForwardType.LOCAL) }
+    var bindHost by remember(initialRule) { mutableStateOf(initialRule?.bindHost.orEmpty()) }
+    var bindPort by remember(initialRule) { mutableStateOf(initialRule?.bindPort?.toString().orEmpty()) }
+    var targetHost by remember(initialRule) { mutableStateOf(initialRule?.targetHost.orEmpty()) }
+    var targetPort by remember(initialRule) { mutableStateOf(initialRule?.targetPort?.toString().orEmpty()) }
 
     val candidate =
         buildPortForwardRule(
@@ -751,7 +786,7 @@ private fun AddPortForwardRuleDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.connection_port_forward_add_title)) },
+        title = { Text(title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 PortForwardTypeSelector(
@@ -794,10 +829,10 @@ private fun AddPortForwardRuleDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { candidate?.let(onAdd) },
+                onClick = { candidate?.let(onConfirm) },
                 enabled = candidate != null,
             ) {
-                Text(stringResource(R.string.connection_add_port_forward_rule))
+                Text(confirmLabel)
             }
         },
         dismissButton = {

@@ -76,6 +76,12 @@ class TermuxTerminalBridge(
             _renderVersion.value++
         }
 
+    fun setTerminalCursorStyle(style: Int) =
+        lock.write {
+            sessionClient.setTerminalCursorStyle(style)
+            _renderVersion.value++
+        }
+
     fun isMouseTrackingActive(): Boolean = lock.read { emulator.isMouseTrackingActive }
 
     fun isAlternateBufferActive(): Boolean = lock.read { emulator.isAlternateBufferActive }

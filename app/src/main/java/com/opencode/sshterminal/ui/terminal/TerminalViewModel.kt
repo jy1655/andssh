@@ -117,6 +117,14 @@ class TerminalViewModel
                     SettingsRepository.DEFAULT_TERMINAL_HAPTIC_FEEDBACK_ENABLED,
                 )
 
+        val terminalCursorStyle: StateFlow<Int> =
+            settingsRepository.terminalCursorStyle
+                .stateIn(
+                    viewModelScope,
+                    SharingStarted.WhileSubscribed(STATE_FLOW_TIMEOUT_MS),
+                    SettingsRepository.DEFAULT_TERMINAL_CURSOR_STYLE,
+                )
+
         init {
             viewModelScope.launch {
                 sessionManager.hasAnyConnected.collect { anyConnected ->

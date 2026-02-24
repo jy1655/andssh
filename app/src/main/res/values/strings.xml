@@ -221,6 +221,10 @@
     <string name="settings_disabled">Disabled</string>
     <string name="settings_color_scheme">Color Scheme</string>
     <string name="settings_font">Font</string>
+    <string name="settings_cursor_style">Cursor Style</string>
+    <string name="settings_cursor_style_block">Block</string>
+    <string name="settings_cursor_style_underline">Underline</string>
+    <string name="settings_cursor_style_bar">Bar</string>
     <string name="settings_clipboard_clear">Clipboard Auto-clear</string>
     <string name="settings_ssh_keepalive">SSH Keepalive</string>
     <string name="settings_haptic_feedback">Key Haptic Feedback</string>

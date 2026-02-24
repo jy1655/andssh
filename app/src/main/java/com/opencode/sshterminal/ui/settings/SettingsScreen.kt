@@ -57,6 +57,7 @@ import com.opencode.sshterminal.ui.theme.OceanBlue
 import com.opencode.sshterminal.ui.theme.SunsetOrange
 import com.opencode.sshterminal.ui.theme.TerminalGreen
 import com.opencode.sshterminal.ui.theme.ThemePreset
+import com.termux.terminal.TerminalEmulator
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -342,11 +343,21 @@ private fun TerminalSection(
 ) {
     var showSchemeDialog by remember { mutableStateOf(false) }
     var showFontDialog by remember { mutableStateOf(false) }
+    var showCursorDialog by remember { mutableStateOf(false) }
     var showClipboardDialog by remember { mutableStateOf(false) }
     var showKeepaliveDialog by remember { mutableStateOf(false) }
 
     val schemeOptions = TerminalColorSchemePreset.entries.map { it.id to it.displayName }
     val fontOptions = TerminalFontPreset.entries.map { it.id to it.displayName }
+    val cursorStyleOptions =
+        listOf(
+            TerminalEmulator.TERMINAL_CURSOR_STYLE_BLOCK to stringResource(R.string.settings_cursor_style_block),
+            TerminalEmulator.TERMINAL_CURSOR_STYLE_UNDERLINE to stringResource(R.string.settings_cursor_style_underline),
+            TerminalEmulator.TERMINAL_CURSOR_STYLE_BAR to stringResource(R.string.settings_cursor_style_bar),
+        )
+    val cursorStyleLabel =
+        cursorStyleOptions.firstOrNull { it.first == state.terminalCursorStyle }?.second
+            ?: cursorStyleOptions.first().second
     val clipboardOptions =
         listOf(
             15 to stringResource(R.string.settings_timeout_15s),
@@ -384,6 +395,12 @@ private fun TerminalSection(
             )
             SettingsDivider()
             SettingsValueRow(
+                title = stringResource(R.string.settings_cursor_style),
+                value = cursorStyleLabel,
+                onClick = { showCursorDialog = true },
+            )
+            SettingsDivider()
+            SettingsValueRow(
                 title = stringResource(R.string.settings_clipboard_clear),
                 value = clipboardLabel,
                 onClick = { showClipboardDialog = true },
@@ -418,6 +435,14 @@ private fun TerminalSection(
         selected = state.terminalFont,
         onSelected = viewModel::setTerminalFont,
         onDismiss = { showFontDialog = false },
+    )
+    SelectionDialog(
+        show = showCursorDialog,
+        title = stringResource(R.string.settings_cursor_style),
+        options = cursorStyleOptions,
+        selected = state.terminalCursorStyle,
+        onSelected = viewModel::setTerminalCursorStyle,
+        onDismiss = { showCursorDialog = false },
     )
     SelectionDialog(
         show = showClipboardDialog,

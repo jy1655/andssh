@@ -21,6 +21,7 @@ import com.opencode.sshterminal.terminal.TerminalFontPreset
 import com.opencode.sshterminal.terminal.TermuxTerminalBridge
 import com.opencode.sshterminal.terminal.applyColorScheme
 import com.termux.terminal.TerminalBuffer
+import com.termux.terminal.TerminalEmulator
 import com.termux.terminal.WcWidth
 
 internal const val DEFAULT_FONT_SIZE_SP = 12
@@ -61,6 +62,7 @@ fun TerminalRenderer(
     bridge: TermuxTerminalBridge,
     terminalColorSchemeId: String,
     terminalFontId: String = TerminalFontPreset.MESLO_NERD.id,
+    terminalCursorStyle: Int = TerminalEmulator.DEFAULT_TERMINAL_CURSOR_STYLE,
     modifier: Modifier = Modifier,
     scrollCounters: TerminalScrollCounters = TerminalScrollCounters(),
     callbacks: TerminalRendererCallbacks = TerminalRendererCallbacks(),
@@ -97,6 +99,7 @@ fun TerminalRenderer(
                 scrollCounters = scrollCounters,
                 renderVersion = renderVersion + colorSchemeRenderVersion,
                 terminalColorSchemeId = terminalColorSchemeId,
+                terminalCursorStyle = terminalCursorStyle,
                 onResize = callbacks.onResize,
                 onColorSchemeApplied = { colorSchemeRenderVersion++ },
             ),
@@ -126,6 +129,10 @@ private fun TerminalRendererEffects(
         val preset = TerminalColorSchemePreset.fromId(config.terminalColorSchemeId)
         applyColorScheme(bridge.emulator, preset)
         config.onColorSchemeApplied()
+    }
+
+    LaunchedEffect(bridge, config.terminalCursorStyle) {
+        bridge.setTerminalCursorStyle(config.terminalCursorStyle)
     }
 
     LaunchedEffect(config.canvasSize, config.charSize) {
@@ -165,6 +172,7 @@ private data class TerminalEffectsConfig(
     val scrollCounters: TerminalScrollCounters,
     val renderVersion: Long,
     val terminalColorSchemeId: String,
+    val terminalCursorStyle: Int,
     val onResize: ((cols: Int, rows: Int) -> Unit)?,
     val onColorSchemeApplied: () -> Unit,
 )

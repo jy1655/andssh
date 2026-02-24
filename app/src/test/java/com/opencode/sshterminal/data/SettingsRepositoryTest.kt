@@ -146,4 +146,23 @@ class SettingsRepositoryTest {
             repo.setTerminalHapticFeedbackEnabled(false)
             assertEquals(false, repo.terminalHapticFeedbackEnabled.first())
         }
+
+    @Test
+    fun `default terminal cursor style is configured value`() =
+        runTest(testDispatcher) {
+            val repo = SettingsRepository(createDataStore())
+            assertEquals(
+                SettingsRepository.DEFAULT_TERMINAL_CURSOR_STYLE,
+                repo.terminalCursorStyle.first(),
+            )
+        }
+
+    @Test
+    fun `setTerminalCursorStyle persists value`() =
+        runTest(testDispatcher) {
+            val ds = createDataStore()
+            val repo = SettingsRepository(ds)
+            repo.setTerminalCursorStyle(2)
+            assertEquals(2, repo.terminalCursorStyle.first())
+        }
 }

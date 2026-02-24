@@ -7,6 +7,7 @@ import com.termux.terminal.TerminalSessionClient;
 final class BridgeTerminalSessionClient implements TerminalSessionClient {
     private final Runnable onTextChanged;
     private final Runnable onBellReceived;
+    private volatile Integer terminalCursorStyle = TerminalEmulator.DEFAULT_TERMINAL_CURSOR_STYLE;
 
     BridgeTerminalSessionClient(Runnable onTextChanged, Runnable onBellReceived) {
         this.onTextChanged = onTextChanged;
@@ -43,7 +44,11 @@ final class BridgeTerminalSessionClient implements TerminalSessionClient {
 
     @Override
     public Integer getTerminalCursorStyle() {
-        return TerminalEmulator.DEFAULT_TERMINAL_CURSOR_STYLE;
+        return terminalCursorStyle;
+    }
+
+    void setTerminalCursorStyle(int style) {
+        terminalCursorStyle = style;
     }
 
     @Override

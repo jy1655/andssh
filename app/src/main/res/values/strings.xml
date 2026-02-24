@@ -151,7 +151,6 @@
     <string name="terminal_split_enable">Split</string>
     <string name="terminal_split_disable">Single</string>
     <string name="terminal_split_next_pane">Next Pane</string>
-    <string name="terminal_mosh_unavailable_message">Mosh is not available in this build. Switch this connection to SSH for now.</string>
 
     <string name="sftp_browser_title">SFTP Browser</string>
     <string name="sftp_back">Back</string>

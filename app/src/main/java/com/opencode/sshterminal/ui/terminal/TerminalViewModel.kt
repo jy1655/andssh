@@ -5,7 +5,6 @@ import android.content.Intent
 import android.view.KeyEvent
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.opencode.sshterminal.R
 import com.opencode.sshterminal.data.ConnectionProfile
 import com.opencode.sshterminal.data.ConnectionProtocol
 import com.opencode.sshterminal.data.ConnectionRepository
@@ -216,34 +215,28 @@ class TerminalViewModel
                 connectionRepository.touchLastUsed(profile.id)
             }
             val tabId =
+                sessionManager.openTab(
+                    title = profile.name,
+                    connectionId = profile.id,
+                    request =
+                        profile.toConnectRequest(
+                            context = context,
+                            cols = DEFAULT_TERMINAL_COLS,
+                            rows = DEFAULT_TERMINAL_ROWS,
+                            keepaliveIntervalSeconds = sshKeepaliveIntervalSeconds.value,
+                            identity = identity,
+                            proxyJumpCredentials = proxyJumpCredentials,
+                        ),
+                )
+            val startupCommand =
                 if (profile.protocol == ConnectionProtocol.MOSH) {
-                    sessionManager.openFailedMessageTab(
-                        title = profile.name,
-                        connectionId = profile.id,
-                        host = profile.host,
-                        port = profile.port,
-                        username = identity?.username ?: profile.username,
-                        message = context.getString(R.string.terminal_mosh_unavailable_message),
-                    )
+                    buildMoshPreflightStartupCommand(profile.startupCommand)
                 } else {
-                    sessionManager.openTab(
-                        title = profile.name,
-                        connectionId = profile.id,
-                        request =
-                            profile.toConnectRequest(
-                                context = context,
-                                cols = DEFAULT_TERMINAL_COLS,
-                                rows = DEFAULT_TERMINAL_ROWS,
-                                keepaliveIntervalSeconds = sshKeepaliveIntervalSeconds.value,
-                                identity = identity,
-                                proxyJumpCredentials = proxyJumpCredentials,
-                            ),
-                    ).also { createdTabId ->
-                        profile.startupCommand?.let { startupCommand ->
-                            scheduleStartupCommand(tabId = createdTabId, startupCommand = startupCommand)
-                        }
-                    }
+                    profile.startupCommand
                 }
+            startupCommand?.let { command ->
+                scheduleStartupCommand(tabId = tabId, startupCommand = command)
+            }
             return tabId
         }
 
@@ -279,6 +272,26 @@ class TerminalViewModel
                 if (state == SessionState.CONNECTED) {
                     sessionManager.sendInputToTab(tabId, "$normalized\r".toByteArray(Charsets.UTF_8))
                 }
+            }
+        }
+
+        private fun buildMoshPreflightStartupCommand(userStartupCommand: String?): String {
+            val normalizedUserCommand = userStartupCommand?.trim()?.takeIf { it.isNotEmpty() }
+            val preflight =
+                """
+                printf '\n[AndSSH] Mosh preflight mode: client transport is not yet integrated.\n'
+                if command -v mosh-server >/dev/null 2>&1; then
+                  printf '[AndSSH] '
+                  mosh-server --version 2>/dev/null | head -n 1
+                else
+                  printf '[AndSSH] mosh-server not found on remote host.\n'
+                fi
+                printf '[AndSSH] Mosh usually requires inbound UDP 60000-61000.\n'
+                """.trimIndent()
+            return if (normalizedUserCommand == null) {
+                preflight
+            } else {
+                "$preflight\n$normalizedUserCommand"
             }
         }
 

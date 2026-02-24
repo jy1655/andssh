@@ -118,56 +118,6 @@ class SessionManager
             return tabId
         }
 
-        fun openFailedMessageTab(
-            title: String,
-            connectionId: String,
-            host: String,
-            port: Int,
-            username: String,
-            message: String,
-        ): TabId {
-            val tabId = TabId()
-            val bellTitle = title
-            val bridge =
-                TermuxTerminalBridge(
-                    cols = 120,
-                    rows = 40,
-                    onWriteToSsh = { bytes -> connector.sendInputToTab(tabId, bytes) },
-                    onBellReceived = { scope.launch { bellNotifier.notifyBell(tabId, bellTitle) } },
-                )
-            val snapshotFlow =
-                MutableStateFlow(
-                    SessionSnapshot(
-                        sessionId = SessionId(),
-                        state = SessionState.FAILED,
-                        host = host,
-                        port = port,
-                        username = username,
-                        error = message,
-                    ),
-                )
-            val tabSession =
-                TabSession(
-                    tabId = tabId,
-                    title = title,
-                    connectionId = connectionId,
-                    bridge = bridge,
-                    snapshotFlow = snapshotFlow,
-                )
-
-            synchronized(tabRegistry) {
-                tabRegistry[tabId] = tabSession
-                tabOrder += tabId
-                _activeTabId.value = tabId
-            }
-            refreshFlows()
-            val normalizedMessage = message.trimEnd('\r', '\n')
-            if (normalizedMessage.isNotBlank()) {
-                bridge.feed("$normalizedMessage\r\n".toByteArray(Charsets.UTF_8))
-            }
-            return tabId
-        }
-
         fun closeTab(tabId: TabId) {
             var removedTab: TabSession?
             synchronized(tabRegistry) {

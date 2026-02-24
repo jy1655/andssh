@@ -151,7 +151,6 @@
     <string name="terminal_split_enable">분할</string>
     <string name="terminal_split_disable">단일</string>
     <string name="terminal_split_next_pane">다음 패널</string>
-    <string name="terminal_mosh_unavailable_message">이 빌드에서는 Mosh를 사용할 수 없습니다. 현재는 이 연결의 프로토콜을 SSH로 변경해 주세요.</string>
 
     <string name="sftp_browser_title">SFTP 탐색기</string>
     <string name="sftp_back">뒤로</string>

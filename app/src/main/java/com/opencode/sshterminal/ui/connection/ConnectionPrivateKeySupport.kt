@@ -1,6 +1,9 @@
 package com.opencode.sshterminal.ui.connection
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.widget.Toast
@@ -118,6 +121,7 @@ internal fun ConnectionPrivateKeyField(
     onGeneratePrivateKey: (SshKeyAlgorithm) -> Unit,
 ) {
     var showGenerateDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     OutlinedTextField(
         value = privateKeyPath,
@@ -142,6 +146,46 @@ internal fun ConnectionPrivateKeyField(
         if (privateKeyPath.isNotBlank()) {
             TextButton(onClick = onClearPrivateKey) {
                 Text(stringResource(R.string.connection_clear_private_key))
+            }
+        }
+    }
+    if (privateKeyPath.isNotBlank()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            OutlinedButton(
+                onClick = {
+                    val publicKey = readPublicKeyText(privateKeyPath)
+                    if (publicKey.isNullOrBlank()) {
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.connection_public_key_not_found),
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    } else {
+                        copyPublicKey(context, publicKey)
+                    }
+                },
+            ) {
+                Text(stringResource(R.string.connection_copy_public_key))
+            }
+            OutlinedButton(
+                onClick = {
+                    val publicKey = readPublicKeyText(privateKeyPath)
+                    if (publicKey.isNullOrBlank()) {
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.connection_public_key_not_found),
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    } else {
+                        sharePublicKey(context, publicKey)
+                    }
+                },
+            ) {
+                Text(stringResource(R.string.connection_share_public_key))
             }
         }
     }
@@ -221,9 +265,47 @@ private fun generatePrivateKeyInInternalStorage(
         val targetDir = File(context.filesDir, "private_keys").apply { mkdirs() }
         val fileName = "${UUID.randomUUID()}_id_${algorithm.fileNameSuffix}"
         val targetFile = File(targetDir, fileName)
-        targetFile.writeText(SshKeyGenerator.generatePrivateKeyPem(algorithm))
+        val keyMaterial = SshKeyGenerator.generateSshKeyMaterial(algorithm)
+        targetFile.writeText(keyMaterial.privateKeyPem)
+        File(targetDir, "$fileName.pub").writeText(keyMaterial.publicKeyAuthorized + "\n")
         targetFile.absolutePath
     }.getOrNull()
+}
+
+private fun readPublicKeyText(privateKeyPath: String): String? {
+    val sidecarFile = File("$privateKeyPath.pub")
+    if (!sidecarFile.exists() || !sidecarFile.isFile) return null
+    return runCatching { sidecarFile.readText().trim() }.getOrNull()?.takeIf { it.isNotBlank() }
+}
+
+private fun copyPublicKey(
+    context: Context,
+    publicKey: String,
+) {
+    val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
+    clipboard.setPrimaryClip(ClipData.newPlainText("ssh-public-key", publicKey))
+    Toast.makeText(
+        context,
+        context.getString(R.string.connection_public_key_copy_success),
+        Toast.LENGTH_SHORT,
+    ).show()
+}
+
+private fun sharePublicKey(
+    context: Context,
+    publicKey: String,
+) {
+    val shareIntent =
+        Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TEXT, publicKey)
+        }
+    context.startActivity(
+        Intent.createChooser(
+            shareIntent,
+            context.getString(R.string.connection_share_public_key),
+        ),
+    )
 }
 
 private fun resolveDisplayName(

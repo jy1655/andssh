@@ -58,6 +58,10 @@
     <string name="connection_generate_private_key_rsa">RSA-4096</string>
     <string name="connection_generate_private_key_ecdsa">ECDSA P-256</string>
     <string name="connection_clear_private_key">Clear Selection</string>
+    <string name="connection_copy_public_key">Copy Public Key</string>
+    <string name="connection_share_public_key">Share Public Key</string>
+    <string name="connection_public_key_copy_success">Public key copied</string>
+    <string name="connection_public_key_not_found">No public key (.pub) found for this private key.</string>
     <string name="connection_private_key_placeholder">No key file selected</string>
     <string name="connection_private_key_import_failed">Failed to import private key file.</string>
     <string name="connection_private_key_generate_failed">Failed to generate private key file.</string>

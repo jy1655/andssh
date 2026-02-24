@@ -35,6 +35,18 @@ class SshKeyGeneratorTest {
         }
     }
 
+    @Test
+    fun `generates authorized key format`() {
+        SshKeyAlgorithm.entries.forEach { algorithm ->
+            val material = SshKeyGenerator.generateSshKeyMaterial(algorithm, comment = "test")
+            val parts = material.publicKeyAuthorized.split(" ")
+            assertTrue(parts.size >= 2)
+            assertTrue(parts[0].startsWith("ssh-") || parts[0].startsWith("ecdsa-"))
+            Base64.getDecoder().decode(parts[1])
+            assertTrue(material.publicKeyAuthorized.endsWith("test"))
+        }
+    }
+
     private fun parsePkcs8FromPem(pem: String): ByteArray {
         val body =
             pem.lineSequence()

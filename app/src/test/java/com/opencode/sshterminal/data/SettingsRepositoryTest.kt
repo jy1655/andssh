@@ -184,4 +184,23 @@ class SettingsRepositoryTest {
             repo.setTerminalCursorStyle(2)
             assertEquals(2, repo.terminalCursorStyle.first())
         }
+
+    @Test
+    fun `default terminal hardware key bindings are empty`() =
+        runTest(testDispatcher) {
+            val repo = SettingsRepository(createDataStore())
+            assertEquals(
+                DEFAULT_TERMINAL_HARDWARE_KEY_BINDINGS,
+                repo.terminalHardwareKeyBindings.first(),
+            )
+        }
+
+    @Test
+    fun `setTerminalHardwareKeyBindings persists normalized config`() =
+        runTest(testDispatcher) {
+            val ds = createDataStore()
+            val repo = SettingsRepository(ds)
+            repo.setTerminalHardwareKeyBindings("ctrl+h=backspace\ninvalid")
+            assertEquals("CTRL+H=BACKSPACE", repo.terminalHardwareKeyBindings.first())
+        }
 }

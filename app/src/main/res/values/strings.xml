@@ -263,6 +263,13 @@
     <string name="settings_terminal_shortcut_layout_reset">Reset default</string>
     <string name="settings_terminal_shortcut_layout_add_key">Add key</string>
     <string name="settings_terminal_shortcut_layout_empty">No keys selected</string>
+    <string name="settings_terminal_hardware_key_bindings">Hardware key bindings</string>
+    <string name="settings_terminal_hardware_key_bindings_value">%1$d bindings</string>
+    <string name="settings_terminal_hardware_key_bindings_edit_title">Edit hardware key bindings</string>
+    <string name="settings_terminal_hardware_key_bindings_reset">Clear all</string>
+    <string name="settings_terminal_hardware_key_bindings_hint">One rule per line: MOD+KEY=ACTION (MOD: CTRL/ALT/SHIFT/META)</string>
+    <string name="settings_terminal_hardware_key_bindings_examples">Example: CTRL+H=BACKSPACE&#10;CTRL+P=ARROW_UP&#10;CTRL+N=ARROW_DOWN</string>
+    <string name="settings_terminal_hardware_key_bindings_valid_count">Valid bindings: %1$d</string>
     <string name="settings_haptic_feedback">Key Haptic Feedback</string>
     <string name="settings_crash_logs_count">%d reports</string>
     <string name="settings_backup_export">Export Connections Backup</string>

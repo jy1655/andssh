@@ -31,6 +31,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -58,7 +59,9 @@ import com.opencode.sshterminal.R
 import com.opencode.sshterminal.data.DEFAULT_TERMINAL_SHORTCUT_LAYOUT_ITEMS
 import com.opencode.sshterminal.data.SettingsRepository
 import com.opencode.sshterminal.data.TerminalShortcutLayoutItem
+import com.opencode.sshterminal.data.parseTerminalHardwareKeyBindings
 import com.opencode.sshterminal.data.parseTerminalShortcutLayout
+import com.opencode.sshterminal.data.serializeTerminalHardwareKeyBindings
 import com.opencode.sshterminal.data.serializeTerminalShortcutLayout
 import com.opencode.sshterminal.terminal.TerminalColorSchemePreset
 import com.opencode.sshterminal.terminal.TerminalFontPreset
@@ -453,6 +456,7 @@ private fun TerminalSection(
     var showClipboardDialog by remember { mutableStateOf(false) }
     var showKeepaliveDialog by remember { mutableStateOf(false) }
     var showShortcutLayoutDialog by remember { mutableStateOf(false) }
+    var showHardwareBindingsDialog by remember { mutableStateOf(false) }
 
     val schemeOptions = TerminalColorSchemePreset.entries.map { it.id to it.displayName }
     val fontOptions = TerminalFontPreset.entries.map { it.id to it.displayName }
@@ -494,6 +498,12 @@ private fun TerminalSection(
         stringResource(
             R.string.settings_terminal_shortcut_layout_value,
             shortcutLayoutItems.size,
+        )
+    val hardwareBindingCount = parseTerminalHardwareKeyBindings(state.terminalHardwareKeyBindings).size
+    val hardwareBindingsLabel =
+        stringResource(
+            R.string.settings_terminal_hardware_key_bindings_value,
+            hardwareBindingCount,
         )
 
     SectionHeader(stringResource(R.string.settings_terminal_title))
@@ -545,6 +555,12 @@ private fun TerminalSection(
                 title = stringResource(R.string.settings_terminal_shortcut_layout),
                 value = shortcutLayoutLabel,
                 onClick = { showShortcutLayoutDialog = true },
+            )
+            SettingsDivider()
+            SettingsValueRow(
+                title = stringResource(R.string.settings_terminal_hardware_key_bindings),
+                value = hardwareBindingsLabel,
+                onClick = { showHardwareBindingsDialog = true },
             )
             SettingsDivider()
             SettingsSwitchRow(
@@ -608,6 +624,12 @@ private fun TerminalSection(
         currentLayout = state.terminalShortcutLayout,
         onSave = viewModel::setTerminalShortcutLayout,
         onDismiss = { showShortcutLayoutDialog = false },
+    )
+    HardwareKeyBindingsDialog(
+        show = showHardwareBindingsDialog,
+        currentBindings = state.terminalHardwareKeyBindings,
+        onSave = viewModel::setTerminalHardwareKeyBindings,
+        onDismiss = { showHardwareBindingsDialog = false },
     )
 }
 
@@ -717,6 +739,78 @@ private fun ShortcutLayoutDialog(
                         }
                     }
                 }
+            }
+        },
+    )
+}
+
+@Suppress("LongMethod")
+@Composable
+private fun HardwareKeyBindingsDialog(
+    show: Boolean,
+    currentBindings: String,
+    onSave: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    if (!show) {
+        return
+    }
+    var draft by remember(currentBindings) { mutableStateOf(currentBindings) }
+    val validCount = parseTerminalHardwareKeyBindings(draft).size
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_terminal_hardware_key_bindings_edit_title)) },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onSave(serializeTerminalHardwareKeyBindings(parseTerminalHardwareKeyBindings(draft)))
+                    onDismiss()
+                },
+            ) {
+                Text(stringResource(R.string.common_save))
+            }
+        },
+        dismissButton = {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = { draft = "" }) {
+                    Text(stringResource(R.string.settings_terminal_hardware_key_bindings_reset))
+                }
+                TextButton(onClick = onDismiss) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            }
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.settings_terminal_hardware_key_bindings_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Text(
+                    text = stringResource(R.string.settings_terminal_hardware_key_bindings_examples),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = draft,
+                    onValueChange = { draft = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 5,
+                    maxLines = 8,
+                )
+                Text(
+                    text =
+                        stringResource(
+                            R.string.settings_terminal_hardware_key_bindings_valid_count,
+                            validCount,
+                        ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         },
     )

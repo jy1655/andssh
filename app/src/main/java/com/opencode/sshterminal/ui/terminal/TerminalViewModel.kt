@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.opencode.sshterminal.data.ConnectionProfile
 import com.opencode.sshterminal.data.ConnectionProtocol
 import com.opencode.sshterminal.data.ConnectionRepository
+import com.opencode.sshterminal.data.DEFAULT_TERMINAL_HARDWARE_KEY_BINDINGS
 import com.opencode.sshterminal.data.DEFAULT_TERMINAL_SHORTCUT_LAYOUT
 import com.opencode.sshterminal.data.SettingsRepository
 import com.opencode.sshterminal.data.TerminalCommandHistoryEntry
@@ -165,6 +166,14 @@ class TerminalViewModel
                     viewModelScope,
                     SharingStarted.WhileSubscribed(STATE_FLOW_TIMEOUT_MS),
                     DEFAULT_TERMINAL_SHORTCUT_LAYOUT,
+                )
+
+        val terminalHardwareKeyBindings: StateFlow<String> =
+            settingsRepository.terminalHardwareKeyBindings
+                .stateIn(
+                    viewModelScope,
+                    SharingStarted.WhileSubscribed(STATE_FLOW_TIMEOUT_MS),
+                    DEFAULT_TERMINAL_HARDWARE_KEY_BINDINGS,
                 )
 
         init {

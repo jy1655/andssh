@@ -79,6 +79,7 @@ fun TerminalScreen(
     val terminalHapticFeedbackEnabled by viewModel.terminalHapticFeedbackEnabled.collectAsState()
     val terminalCursorStyle by viewModel.terminalCursorStyle.collectAsState()
     val terminalShortcutLayout by viewModel.terminalShortcutLayout.collectAsState()
+    val terminalHardwareKeyBindings by viewModel.terminalHardwareKeyBindings.collectAsState()
     var hadTabs by remember { mutableStateOf(false) }
     var showConnectionPicker by remember { mutableStateOf(false) }
     var showSnippetSheet by remember { mutableStateOf(false) }
@@ -151,6 +152,7 @@ fun TerminalScreen(
             terminalHapticFeedbackEnabled = terminalHapticFeedbackEnabled,
             terminalCursorStyle = terminalCursorStyle,
             terminalShortcutLayout = terminalShortcutLayout,
+            terminalHardwareKeyBindings = terminalHardwareKeyBindings,
             isSplitViewEnabled = isSplitViewEnabled,
             secondaryTabId = secondaryTabId,
             canSplitView = tabs.size > 1,
@@ -261,6 +263,7 @@ private data class TerminalScreenModel(
     val terminalHapticFeedbackEnabled: Boolean,
     val terminalCursorStyle: Int,
     val terminalShortcutLayout: String,
+    val terminalHardwareKeyBindings: String,
     val isSplitViewEnabled: Boolean,
     val secondaryTabId: TabId?,
     val canSplitView: Boolean,
@@ -502,6 +505,7 @@ private fun TerminalMainColumn(
             onPageScroll = callbacks.onPageScroll,
             isHapticFeedbackEnabled = model.terminalHapticFeedbackEnabled,
             shortcutLayout = model.terminalShortcutLayout,
+            hardwareKeyBindings = model.terminalHardwareKeyBindings,
             showShortcutRow = !model.isFocusMode,
             focusSignal = imeFocusSignal,
             modifier = Modifier.fillMaxWidth(),

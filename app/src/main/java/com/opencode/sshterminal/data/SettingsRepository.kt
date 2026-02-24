@@ -82,6 +82,11 @@ class SettingsRepository
                 prefs[TERMINAL_SHORTCUT_LAYOUT_KEY] ?: DEFAULT_TERMINAL_SHORTCUT_LAYOUT
             }
 
+        val terminalHardwareKeyBindings: Flow<String> =
+            dataStore.data.map { prefs ->
+                prefs[TERMINAL_HARDWARE_KEY_BINDINGS_KEY] ?: DEFAULT_TERMINAL_HARDWARE_KEY_BINDINGS
+            }
+
         suspend fun setLanguageTag(tag: String) {
             dataStore.edit { prefs -> prefs[LANGUAGE_TAG_KEY] = tag }
         }
@@ -141,6 +146,15 @@ class SettingsRepository
             }
         }
 
+        suspend fun setTerminalHardwareKeyBindings(config: String) {
+            dataStore.edit { prefs ->
+                prefs[TERMINAL_HARDWARE_KEY_BINDINGS_KEY] =
+                    serializeTerminalHardwareKeyBindings(
+                        parseTerminalHardwareKeyBindings(config),
+                    )
+            }
+        }
+
         companion object {
             private val LANGUAGE_TAG_KEY = stringPreferencesKey("pref_language_tag")
             private val THEME_PRESET_KEY = stringPreferencesKey("pref_theme_preset")
@@ -156,6 +170,8 @@ class SettingsRepository
                 booleanPreferencesKey("pref_terminal_haptic_feedback_enabled")
             private val TERMINAL_CURSOR_STYLE_KEY = intPreferencesKey("pref_terminal_cursor_style")
             private val TERMINAL_SHORTCUT_LAYOUT_KEY = stringPreferencesKey("pref_terminal_shortcut_layout")
+            private val TERMINAL_HARDWARE_KEY_BINDINGS_KEY =
+                stringPreferencesKey("pref_terminal_hardware_key_bindings")
             const val DEFAULT_LANGUAGE_TAG = ""
             const val DEFAULT_THEME_PRESET = "green"
             const val DEFAULT_CLIPBOARD_TIMEOUT = 30

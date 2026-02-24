@@ -8,6 +8,7 @@ import com.opencode.sshterminal.auth.AuthRepository
 import com.opencode.sshterminal.crash.CrashReportRepository
 import com.opencode.sshterminal.data.ConnectionBackupImportSummary
 import com.opencode.sshterminal.data.ConnectionBackupManager
+import com.opencode.sshterminal.data.DEFAULT_TERMINAL_HARDWARE_KEY_BINDINGS
 import com.opencode.sshterminal.data.DEFAULT_TERMINAL_SHORTCUT_LAYOUT
 import com.opencode.sshterminal.data.SettingsRepository
 import com.opencode.sshterminal.ui.theme.ThemePreset
@@ -33,6 +34,7 @@ data class SettingsUiState(
     val terminalCursorStyle: Int = SettingsRepository.DEFAULT_TERMINAL_CURSOR_STYLE,
     val terminalHapticFeedbackEnabled: Boolean = SettingsRepository.DEFAULT_TERMINAL_HAPTIC_FEEDBACK_ENABLED,
     val terminalShortcutLayout: String = DEFAULT_TERMINAL_SHORTCUT_LAYOUT,
+    val terminalHardwareKeyBindings: String = DEFAULT_TERMINAL_HARDWARE_KEY_BINDINGS,
     val clipboardTimeoutSeconds: Int = 30,
     val sshKeepaliveIntervalSeconds: Int = SettingsRepository.DEFAULT_SSH_KEEPALIVE_INTERVAL,
     val sshCompressionEnabled: Boolean = SettingsRepository.DEFAULT_SSH_COMPRESSION_ENABLED,
@@ -107,7 +109,8 @@ class SettingsViewModel
                 terminalCorePreferencesFlow,
                 terminalInputFeedbackFlow,
                 settingsRepository.terminalShortcutLayout,
-            ) { corePrefs, feedbackPrefs, shortcutLayout ->
+                settingsRepository.terminalHardwareKeyBindings,
+            ) { corePrefs, feedbackPrefs, shortcutLayout, hardwareKeyBindings ->
                 TerminalPreferences(
                     colorScheme = corePrefs.colorScheme,
                     font = corePrefs.font,
@@ -116,6 +119,7 @@ class SettingsViewModel
                     sshKeepaliveIntervalSeconds = corePrefs.sshKeepaliveIntervalSeconds,
                     sshCompressionEnabled = corePrefs.sshCompressionEnabled,
                     terminalShortcutLayout = shortcutLayout,
+                    terminalHardwareKeyBindings = hardwareKeyBindings,
                     terminalHapticFeedbackEnabled = feedbackPrefs.hapticFeedbackEnabled,
                     terminalCursorStyle = feedbackPrefs.cursorStyle,
                 )
@@ -135,6 +139,7 @@ class SettingsViewModel
                     sshKeepaliveIntervalSeconds = terminalPrefs.sshKeepaliveIntervalSeconds,
                     sshCompressionEnabled = terminalPrefs.sshCompressionEnabled,
                     terminalShortcutLayout = terminalPrefs.terminalShortcutLayout,
+                    terminalHardwareKeyBindings = terminalPrefs.terminalHardwareKeyBindings,
                     terminalHapticFeedbackEnabled = terminalPrefs.terminalHapticFeedbackEnabled,
                     terminalCursorStyle = terminalPrefs.terminalCursorStyle,
                 )
@@ -168,6 +173,7 @@ class SettingsViewModel
                     terminalCursorStyle = prefs.terminalCursorStyle,
                     terminalHapticFeedbackEnabled = prefs.terminalHapticFeedbackEnabled,
                     terminalShortcutLayout = prefs.terminalShortcutLayout,
+                    terminalHardwareKeyBindings = prefs.terminalHardwareKeyBindings,
                     clipboardTimeoutSeconds = prefs.clipboardTimeoutSeconds,
                     sshKeepaliveIntervalSeconds = prefs.sshKeepaliveIntervalSeconds,
                     sshCompressionEnabled = prefs.sshCompressionEnabled,
@@ -276,6 +282,12 @@ class SettingsViewModel
             }
         }
 
+        fun setTerminalHardwareKeyBindings(config: String) {
+            viewModelScope.launch {
+                settingsRepository.setTerminalHardwareKeyBindings(config)
+            }
+        }
+
         suspend fun exportEncryptedBackup(): String {
             return connectionBackupManager.exportEncryptedBackup()
         }
@@ -300,6 +312,7 @@ private data class SettingsPreferences(
     val terminalCursorStyle: Int,
     val terminalHapticFeedbackEnabled: Boolean,
     val terminalShortcutLayout: String,
+    val terminalHardwareKeyBindings: String,
     val clipboardTimeoutSeconds: Int,
     val sshKeepaliveIntervalSeconds: Int,
     val sshCompressionEnabled: Boolean,
@@ -324,6 +337,7 @@ private data class TerminalPreferences(
     val terminalCursorStyle: Int,
     val terminalHapticFeedbackEnabled: Boolean,
     val terminalShortcutLayout: String,
+    val terminalHardwareKeyBindings: String,
     val clipboardTimeoutSeconds: Int,
     val sshKeepaliveIntervalSeconds: Int,
     val sshCompressionEnabled: Boolean,

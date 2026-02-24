@@ -31,6 +31,14 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isAltPressed
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isMetaPressed
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -42,11 +50,13 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.opencode.sshterminal.R
+import com.opencode.sshterminal.data.TerminalHardwareKeyAction
 import com.opencode.sshterminal.data.TerminalShortcutLayoutItem
+import com.opencode.sshterminal.data.parseTerminalHardwareKeyBindings
 import com.opencode.sshterminal.data.parseTerminalShortcutLayout
 
 @Composable
-@Suppress("LongParameterList")
+@Suppress("LongParameterList", "LongMethod")
 fun TerminalInputBar(
     onSendBytes: (ByteArray) -> Unit,
     onMenuClick: (() -> Unit)? = null,
@@ -56,6 +66,7 @@ fun TerminalInputBar(
     onPageScroll: ((Int) -> Unit)? = null,
     isHapticFeedbackEnabled: Boolean = true,
     shortcutLayout: String,
+    hardwareKeyBindings: String,
     showShortcutRow: Boolean = true,
     focusSignal: Int = 0,
     modifier: Modifier = Modifier,
@@ -81,6 +92,40 @@ fun TerminalInputBar(
             onToggleAlt = controller::toggleAlt,
             onShortcut = controller::onShortcut,
         )
+    val parsedHardwareKeyBindings =
+        remember(hardwareKeyBindings) {
+            parseTerminalHardwareKeyBindings(hardwareKeyBindings)
+        }
+    val onHardwareKeyEvent =
+        remember(parsedHardwareKeyBindings, onPageScroll, controller) {
+            { keyEvent: KeyEvent ->
+                if (keyEvent.type != KeyEventType.KeyDown) {
+                    false
+                } else {
+                    val keyToken = mapAndroidKeyCodeToHardwareKeyToken(keyEvent.nativeKeyEvent.keyCode)
+                    val action =
+                        keyToken?.let { token ->
+                            resolveTerminalHardwareKeyAction(
+                                bindings = parsedHardwareKeyBindings,
+                                key = token,
+                                ctrl = keyEvent.isCtrlPressed,
+                                alt = keyEvent.isAltPressed,
+                                shift = keyEvent.isShiftPressed,
+                                meta = keyEvent.isMetaPressed,
+                            )
+                        }
+                    if (action == null) {
+                        false
+                    } else {
+                        dispatchHardwareKeyAction(
+                            action = action,
+                            controller = controller,
+                            onPageScroll = onPageScroll,
+                        )
+                    }
+                }
+            }
+        }
 
     Surface(
         modifier = modifier,
@@ -112,6 +157,7 @@ fun TerminalInputBar(
                 textFieldValue = controller.textFieldValue,
                 onValueChange = controller::onTextFieldValueChange,
                 onSubmit = controller::submitInput,
+                onHardwareKeyEvent = onHardwareKeyEvent,
                 onKeyTap = onKeyTap,
             )
         }
@@ -266,12 +312,80 @@ private fun ShortcutLayoutChip(
     }
 }
 
+@Suppress("CyclomaticComplexMethod", "LongMethod")
+private fun dispatchHardwareKeyAction(
+    action: TerminalHardwareKeyAction,
+    controller: TerminalInputController,
+    onPageScroll: ((Int) -> Unit)?,
+): Boolean {
+    return when (action) {
+        TerminalHardwareKeyAction.ESC -> {
+            controller.onShortcut(TerminalShortcut.ESC)
+            true
+        }
+        TerminalHardwareKeyAction.TAB -> {
+            controller.onShortcut(TerminalShortcut.TAB)
+            true
+        }
+        TerminalHardwareKeyAction.ENTER -> {
+            controller.submitInput()
+            true
+        }
+        TerminalHardwareKeyAction.ARROW_UP -> {
+            controller.onShortcut(TerminalShortcut.ARROW_UP)
+            true
+        }
+        TerminalHardwareKeyAction.ARROW_DOWN -> {
+            controller.onShortcut(TerminalShortcut.ARROW_DOWN)
+            true
+        }
+        TerminalHardwareKeyAction.ARROW_LEFT -> {
+            controller.onShortcut(TerminalShortcut.ARROW_LEFT)
+            true
+        }
+        TerminalHardwareKeyAction.ARROW_RIGHT -> {
+            controller.onShortcut(TerminalShortcut.ARROW_RIGHT)
+            true
+        }
+        TerminalHardwareKeyAction.BACKSPACE -> {
+            controller.onShortcut(TerminalShortcut.BACKSPACE)
+            true
+        }
+        TerminalHardwareKeyAction.CTRL_C -> {
+            controller.onShortcut(TerminalShortcut.CTRL_C)
+            true
+        }
+        TerminalHardwareKeyAction.CTRL_D -> {
+            controller.onShortcut(TerminalShortcut.CTRL_D)
+            true
+        }
+        TerminalHardwareKeyAction.PAGE_UP -> {
+            if (onPageScroll == null) {
+                false
+            } else {
+                onPageScroll(1)
+                true
+            }
+        }
+        TerminalHardwareKeyAction.PAGE_DOWN -> {
+            if (onPageScroll == null) {
+                false
+            } else {
+                onPageScroll(-1)
+                true
+            }
+        }
+    }
+}
+
 @Composable
+@Suppress("LongParameterList")
 private fun TerminalTextInputRow(
     focusSignal: Int,
     textFieldValue: TextFieldValue,
     onValueChange: (TextFieldValue) -> Unit,
     onSubmit: () -> Unit,
+    onHardwareKeyEvent: (KeyEvent) -> Boolean,
     onKeyTap: () -> Unit,
 ) {
     val focusRequester = remember { FocusRequester() }
@@ -296,6 +410,7 @@ private fun TerminalTextInputRow(
                 Modifier
                     .weight(1f)
                     .height(34.dp)
+                    .onPreviewKeyEvent(onHardwareKeyEvent)
                     .focusRequester(focusRequester)
                     .clip(RoundedCornerShape(6.dp))
                     .background(MaterialTheme.colorScheme.surface)

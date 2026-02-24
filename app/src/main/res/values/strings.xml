@@ -24,7 +24,7 @@
     <string name="connection_no_saved_title">No saved connections</string>
     <string name="connection_no_saved_subtitle">Tap + to add a new SSH connection</string>
     <string name="connection_search_label">Search</string>
-    <string name="connection_search_placeholder">Search by name, group, host, or username</string>
+    <string name="connection_search_placeholder">Search by name, group, tags, host, or username</string>
     <string name="connection_no_search_results">No connections match \"%1$s\"</string>
     <string name="connection_group_ungrouped">Ungrouped</string>
     <string name="connection_filter_groups_label">Groups</string>
@@ -40,6 +40,8 @@
     <string name="connection_sheet_new_title">New Connection</string>
     <string name="connection_label_name">Name</string>
     <string name="connection_label_group_optional">Group (Optional)</string>
+    <string name="connection_label_tags_optional">Tags (Optional)</string>
+    <string name="connection_tags_placeholder">Comma-separated, e.g. prod, db, k8s</string>
     <string name="connection_terminal_scheme_label">Terminal color scheme</string>
     <string name="connection_terminal_scheme_use_app_default">Use app default</string>
     <string name="connection_label_startup_command_optional">Startup command (Optional)</string>

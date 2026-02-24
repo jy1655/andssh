@@ -12,6 +12,7 @@ class ConnectionListFilteringTest {
             group = "ops",
             host = "10.0.0.1",
             username = "root",
+            tags = listOf("prod", "db"),
             lastUsedEpochMillis = 10L,
         )
     private val betaOps =
@@ -42,7 +43,7 @@ class ConnectionListFilteringTest {
         )
 
     @Test
-    fun `search matches group host and username`() {
+    fun `search matches group host username and tags`() {
         val profiles = listOf(alphaOps, betaOps, gammaDev, ungrouped)
 
         val byGroup =
@@ -66,10 +67,18 @@ class ConnectionListFilteringTest {
                 selectedGroupFilter = null,
                 sortOption = ConnectionSortOption.NAME,
             )
+        val byTag =
+            filterAndSortProfiles(
+                profiles = profiles,
+                searchQuery = "prod",
+                selectedGroupFilter = null,
+                sortOption = ConnectionSortOption.NAME,
+            )
 
         assertEquals(listOf("alpha", "beta"), byGroup.map { profile -> profile.name })
         assertEquals(listOf("gamma"), byHost.map { profile -> profile.name })
         assertEquals(listOf("misc"), byUser.map { profile -> profile.name })
+        assertEquals(listOf("alpha"), byTag.map { profile -> profile.name })
     }
 
     @Test

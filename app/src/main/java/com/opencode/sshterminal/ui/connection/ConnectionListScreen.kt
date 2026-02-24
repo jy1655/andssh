@@ -534,6 +534,13 @@ private fun ConnectionCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (profile.tags.isNotEmpty()) {
+                    Text(
+                        profile.tags.joinToString("  ") { tag -> "#$tag" },
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 connectionRouteSummary(profile)?.let { summary ->
                     Text(
                         summary,
@@ -564,6 +571,7 @@ private fun ConnectionCard(
 private data class ConnectionDraft(
     val name: String = "",
     val group: String = "",
+    val tagsInput: String = "",
     val terminalColorSchemeId: String = "",
     val startupCommand: String = "",
     val environmentVariablesInput: String = "",
@@ -583,6 +591,7 @@ private fun ConnectionProfile?.toDraft(): ConnectionDraft =
     ConnectionDraft(
         name = this?.name.orEmpty(),
         group = this?.group.orEmpty(),
+        tagsInput = formatConnectionTagsInput(this?.tags.orEmpty()),
         terminalColorSchemeId = this?.terminalColorSchemeId.orEmpty(),
         startupCommand = this?.startupCommand.orEmpty(),
         environmentVariablesInput = formatEnvironmentVariablesInput(this?.environmentVariables.orEmpty()),
@@ -610,10 +619,12 @@ private fun ConnectionDraft.toProfileOrNull(
             .toSet()
     val filteredProxyJumpIdentityIds = proxyJumpIdentityIds.filterKeys { key -> key in validHopKeys }
     val parsedEnvironmentVariables = parseEnvironmentVariablesInput(environmentVariablesInput)
+    val parsedTags = parseConnectionTagsInput(tagsInput)
     return ConnectionProfile(
         id = initial?.id ?: UUID.randomUUID().toString(),
         name = name.ifBlank { "$username@$host" },
         group = group.trim().ifBlank { null },
+        tags = parsedTags,
         terminalColorSchemeId = terminalColorSchemeId.trim().ifBlank { null },
         startupCommand = startupCommand.trim().ifBlank { null },
         environmentVariables = parsedEnvironmentVariables,
@@ -633,15 +644,15 @@ private fun ConnectionDraft.toProfileOrNull(
 }
 
 private fun connectionRouteSummary(profile: ConnectionProfile): String? {
-    val tags = mutableListOf<String>()
+    val routeTags = mutableListOf<String>()
     if (!profile.proxyJump.isNullOrBlank()) {
         val hops = parseProxyJumpEntries(profile.proxyJump).size
-        tags += if (hops > 0) "PJ:$hops" else "PJ"
+        routeTags += if (hops > 0) "PJ:$hops" else "PJ"
     }
     if (profile.portForwards.isNotEmpty()) {
-        tags += "FWD:${profile.portForwards.size}"
+        routeTags += "FWD:${profile.portForwards.size}"
     }
-    return tags.takeIf { it.isNotEmpty() }?.joinToString(" · ")
+    return routeTags.takeIf { it.isNotEmpty() }?.joinToString(" · ")
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -731,7 +742,13 @@ private fun ConnectionBottomSheet(
                 },
                 onRemovePortForwardRuleAt = { index ->
                     if (index in draft.portForwards.indices) {
-                        draft = draft.copy(portForwards = draft.portForwards.toMutableList().also { it.removeAt(index) })
+                        draft =
+                            draft.copy(
+                                portForwards =
+                                    draft.portForwards.toMutableList().also { rules ->
+                                        rules.removeAt(index)
+                                    },
+                            )
                     }
                 },
                 onClearPortForwards = { draft = draft.copy(portForwards = emptyList()) },
@@ -795,6 +812,14 @@ private fun ConnectionFormFields(
         onValueChange = { onDraftChange(draft.copy(group = it)) },
         label = { Text(stringResource(R.string.connection_label_group_optional)) },
         singleLine = true,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    OutlinedTextField(
+        value = draft.tagsInput,
+        onValueChange = { onDraftChange(draft.copy(tagsInput = it)) },
+        label = { Text(stringResource(R.string.connection_label_tags_optional)) },
+        placeholder = { Text(stringResource(R.string.connection_tags_placeholder)) },
+        maxLines = 2,
         modifier = Modifier.fillMaxWidth(),
     )
     ConnectionTerminalSchemeField(

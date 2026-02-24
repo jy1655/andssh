@@ -24,6 +24,7 @@ internal fun filterAndSortProfiles(
                 profile.name.contains(query, ignoreCase = true) ||
                     profile.group.orEmpty().contains(query, ignoreCase = true) ||
                     profile.host.contains(query, ignoreCase = true) ||
+                    profile.tags.any { tag -> tag.contains(query, ignoreCase = true) } ||
                     profile.username.contains(query, ignoreCase = true)
             }
         }

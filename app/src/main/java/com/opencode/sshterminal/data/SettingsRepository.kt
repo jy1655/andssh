@@ -57,6 +57,11 @@ class SettingsRepository
                 prefs[SSH_KEEPALIVE_INTERVAL_SECONDS_KEY] ?: DEFAULT_SSH_KEEPALIVE_INTERVAL
             }
 
+        val sshCompressionEnabled: Flow<Boolean> =
+            dataStore.data.map { prefs ->
+                prefs[SSH_COMPRESSION_ENABLED_KEY] ?: DEFAULT_SSH_COMPRESSION_ENABLED
+            }
+
         val screenshotProtectionEnabled: Flow<Boolean> =
             dataStore.data.map { prefs ->
                 prefs[SCREENSHOT_PROTECTION_ENABLED_KEY] ?: DEFAULT_SCREENSHOT_PROTECTION_ENABLED
@@ -111,6 +116,10 @@ class SettingsRepository
             dataStore.edit { prefs -> prefs[SSH_KEEPALIVE_INTERVAL_SECONDS_KEY] = seconds }
         }
 
+        suspend fun setSshCompressionEnabled(enabled: Boolean) {
+            dataStore.edit { prefs -> prefs[SSH_COMPRESSION_ENABLED_KEY] = enabled }
+        }
+
         suspend fun setScreenshotProtectionEnabled(enabled: Boolean) {
             dataStore.edit { prefs -> prefs[SCREENSHOT_PROTECTION_ENABLED_KEY] = enabled }
         }
@@ -141,6 +150,7 @@ class SettingsRepository
             private val TERMINAL_FONT_KEY = stringPreferencesKey("pref_terminal_font")
             private val TERMINAL_FONT_SIZE_SP_KEY = intPreferencesKey("pref_terminal_font_size_sp")
             private val SSH_KEEPALIVE_INTERVAL_SECONDS_KEY = intPreferencesKey("pref_ssh_keepalive_interval_seconds")
+            private val SSH_COMPRESSION_ENABLED_KEY = booleanPreferencesKey("pref_ssh_compression_enabled")
             private val SCREENSHOT_PROTECTION_ENABLED_KEY = booleanPreferencesKey("pref_screenshot_protection_enabled")
             private val TERMINAL_HAPTIC_FEEDBACK_ENABLED_KEY =
                 booleanPreferencesKey("pref_terminal_haptic_feedback_enabled")
@@ -156,6 +166,7 @@ class SettingsRepository
             const val MIN_TERMINAL_FONT_SIZE_SP = 8
             const val MAX_TERMINAL_FONT_SIZE_SP = 48
             const val DEFAULT_SSH_KEEPALIVE_INTERVAL = 15
+            const val DEFAULT_SSH_COMPRESSION_ENABLED = false
             const val DEFAULT_SCREENSHOT_PROTECTION_ENABLED = false
             const val DEFAULT_TERMINAL_HAPTIC_FEEDBACK_ENABLED = true
             const val DEFAULT_TERMINAL_CURSOR_STYLE = 0

@@ -60,6 +60,7 @@ class SftpBrowserViewModel
                 val identity = profile.identityId?.let { identityId -> connectionRepository.getIdentity(identityId) }
                 val proxyJumpCredentials = resolveProxyJumpCredentials(profile)
                 val keepaliveInterval = settingsRepository.sshKeepaliveIntervalSeconds.first()
+                val compressionEnabled = settingsRepository.sshCompressionEnabled.first()
                 val request =
                     profile.toConnectRequest(
                         context = context,
@@ -68,7 +69,7 @@ class SftpBrowserViewModel
                         keepaliveIntervalSeconds = keepaliveInterval,
                         identity = identity,
                         proxyJumpCredentials = proxyJumpCredentials,
-                    )
+                    ).copy(compressionEnabled = compressionEnabled)
                 _uiState.value =
                     _uiState.value.copy(
                         busy = true,

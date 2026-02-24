@@ -135,6 +135,14 @@ class TerminalViewModel
                     SettingsRepository.DEFAULT_SSH_KEEPALIVE_INTERVAL,
                 )
 
+        val sshCompressionEnabled: StateFlow<Boolean> =
+            settingsRepository.sshCompressionEnabled
+                .stateIn(
+                    viewModelScope,
+                    SharingStarted.WhileSubscribed(STATE_FLOW_TIMEOUT_MS),
+                    SettingsRepository.DEFAULT_SSH_COMPRESSION_ENABLED,
+                )
+
         val terminalHapticFeedbackEnabled: StateFlow<Boolean> =
             settingsRepository.terminalHapticFeedbackEnabled
                 .stateIn(
@@ -226,7 +234,7 @@ class TerminalViewModel
                             keepaliveIntervalSeconds = sshKeepaliveIntervalSeconds.value,
                             identity = identity,
                             proxyJumpCredentials = proxyJumpCredentials,
-                        ),
+                        ).copy(compressionEnabled = sshCompressionEnabled.value),
                 )
             val startupCommand =
                 if (profile.protocol == ConnectionProtocol.MOSH) {

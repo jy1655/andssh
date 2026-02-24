@@ -253,6 +253,7 @@
     <string name="settings_cursor_style_bar">Bar</string>
     <string name="settings_clipboard_clear">Clipboard Auto-clear</string>
     <string name="settings_ssh_keepalive">SSH Keepalive</string>
+    <string name="settings_ssh_compression">SSH Compression (zlib)</string>
     <string name="settings_terminal_shortcut_layout">Custom key row</string>
     <string name="settings_terminal_shortcut_layout_value">%1$d keys</string>
     <string name="settings_terminal_shortcut_layout_edit_title">Edit key row</string>

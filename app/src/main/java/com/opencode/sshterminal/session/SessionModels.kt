@@ -45,6 +45,7 @@ data class ConnectRequest(
     val portForwards: List<PortForwardRule> = emptyList(),
     val environmentVariables: Map<String, String> = emptyMap(),
     val keepaliveIntervalSeconds: Int = 15,
+    val compressionEnabled: Boolean = false,
     val hostKeyPolicy: HostKeyPolicy = HostKeyPolicy.STRICT,
     val termType: String = "xterm-256color",
     val cols: Int,

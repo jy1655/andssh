@@ -63,6 +63,9 @@ class SshjClient : SshClient {
                 jumpHosts.forEach { jumpTarget ->
                     val relay = SSHClient()
                     relay.connection.keepAlive.keepAliveInterval = request.keepaliveIntervalSeconds.coerceAtLeast(0)
+                    if (request.compressionEnabled) {
+                        relay.useCompression()
+                    }
                     val authRequest = request.withJumpCredentialOverride(jumpTarget)
                     connectAndAuthenticate(
                         ssh = relay,
@@ -76,6 +79,9 @@ class SshjClient : SshClient {
 
                 val ssh = SSHClient()
                 ssh.connection.keepAlive.keepAliveInterval = request.keepaliveIntervalSeconds.coerceAtLeast(0)
+                if (request.compressionEnabled) {
+                    ssh.useCompression()
+                }
                 val endpoint = JumpTarget(host = request.host, port = request.port, username = request.username)
                 connectAndAuthenticate(
                     ssh = ssh,

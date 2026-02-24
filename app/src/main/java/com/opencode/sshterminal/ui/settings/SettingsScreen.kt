@@ -535,6 +535,12 @@ private fun TerminalSection(
                 onClick = { showKeepaliveDialog = true },
             )
             SettingsDivider()
+            SettingsSwitchRow(
+                title = stringResource(R.string.settings_ssh_compression),
+                checked = state.sshCompressionEnabled,
+                onToggle = viewModel::setSshCompressionEnabled,
+            )
+            SettingsDivider()
             SettingsValueRow(
                 title = stringResource(R.string.settings_terminal_shortcut_layout),
                 value = shortcutLayoutLabel,

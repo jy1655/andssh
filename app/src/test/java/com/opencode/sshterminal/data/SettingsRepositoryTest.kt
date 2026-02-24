@@ -110,6 +110,25 @@ class SettingsRepositoryTest {
         }
 
     @Test
+    fun `default ssh compression is disabled`() =
+        runTest(testDispatcher) {
+            val repo = SettingsRepository(createDataStore())
+            assertEquals(
+                SettingsRepository.DEFAULT_SSH_COMPRESSION_ENABLED,
+                repo.sshCompressionEnabled.first(),
+            )
+        }
+
+    @Test
+    fun `setSshCompressionEnabled persists value`() =
+        runTest(testDispatcher) {
+            val ds = createDataStore()
+            val repo = SettingsRepository(ds)
+            repo.setSshCompressionEnabled(true)
+            assertEquals(true, repo.sshCompressionEnabled.first())
+        }
+
+    @Test
     fun `default screenshot protection is disabled`() =
         runTest(testDispatcher) {
             val repo = SettingsRepository(createDataStore())

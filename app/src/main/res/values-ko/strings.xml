@@ -253,6 +253,7 @@
     <string name="settings_cursor_style_bar">막대</string>
     <string name="settings_clipboard_clear">클립보드 자동 삭제</string>
     <string name="settings_ssh_keepalive">SSH Keepalive</string>
+    <string name="settings_ssh_compression">SSH 압축 (zlib)</string>
     <string name="settings_terminal_shortcut_layout">커스텀 키 행</string>
     <string name="settings_terminal_shortcut_layout_value">%1$d개 키</string>
     <string name="settings_terminal_shortcut_layout_edit_title">키 행 편집</string>

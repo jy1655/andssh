@@ -35,6 +35,7 @@ data class SettingsUiState(
     val terminalShortcutLayout: String = DEFAULT_TERMINAL_SHORTCUT_LAYOUT,
     val clipboardTimeoutSeconds: Int = 30,
     val sshKeepaliveIntervalSeconds: Int = SettingsRepository.DEFAULT_SSH_KEEPALIVE_INTERVAL,
+    val sshCompressionEnabled: Boolean = SettingsRepository.DEFAULT_SSH_COMPRESSION_ENABLED,
     val crashReportCount: Int = 0,
 )
 
@@ -73,7 +74,7 @@ class SettingsViewModel
                 )
             }
 
-        private val terminalCorePreferencesFlow =
+        private val terminalCoreBasePreferencesFlow =
             combine(
                 settingsRepository.terminalColorScheme,
                 settingsRepository.terminalFont,
@@ -87,6 +88,17 @@ class SettingsViewModel
                     fontSizeSp = fontSizeSp,
                     clipboardTimeoutSeconds = clipboardTimeout,
                     sshKeepaliveIntervalSeconds = keepaliveInterval,
+                    sshCompressionEnabled = SettingsRepository.DEFAULT_SSH_COMPRESSION_ENABLED,
+                )
+            }
+
+        private val terminalCorePreferencesFlow =
+            combine(
+                terminalCoreBasePreferencesFlow,
+                settingsRepository.sshCompressionEnabled,
+            ) { basePrefs, compressionEnabled ->
+                basePrefs.copy(
+                    sshCompressionEnabled = compressionEnabled,
                 )
             }
 
@@ -102,6 +114,7 @@ class SettingsViewModel
                     fontSizeSp = corePrefs.fontSizeSp,
                     clipboardTimeoutSeconds = corePrefs.clipboardTimeoutSeconds,
                     sshKeepaliveIntervalSeconds = corePrefs.sshKeepaliveIntervalSeconds,
+                    sshCompressionEnabled = corePrefs.sshCompressionEnabled,
                     terminalShortcutLayout = shortcutLayout,
                     terminalHapticFeedbackEnabled = feedbackPrefs.hapticFeedbackEnabled,
                     terminalCursorStyle = feedbackPrefs.cursorStyle,
@@ -120,6 +133,7 @@ class SettingsViewModel
                     terminalFontSizeSp = terminalPrefs.fontSizeSp,
                     clipboardTimeoutSeconds = terminalPrefs.clipboardTimeoutSeconds,
                     sshKeepaliveIntervalSeconds = terminalPrefs.sshKeepaliveIntervalSeconds,
+                    sshCompressionEnabled = terminalPrefs.sshCompressionEnabled,
                     terminalShortcutLayout = terminalPrefs.terminalShortcutLayout,
                     terminalHapticFeedbackEnabled = terminalPrefs.terminalHapticFeedbackEnabled,
                     terminalCursorStyle = terminalPrefs.terminalCursorStyle,
@@ -156,6 +170,7 @@ class SettingsViewModel
                     terminalShortcutLayout = prefs.terminalShortcutLayout,
                     clipboardTimeoutSeconds = prefs.clipboardTimeoutSeconds,
                     sshKeepaliveIntervalSeconds = prefs.sshKeepaliveIntervalSeconds,
+                    sshCompressionEnabled = prefs.sshCompressionEnabled,
                     crashReportCount = crashCount,
                 )
             }.stateIn(
@@ -237,6 +252,12 @@ class SettingsViewModel
             }
         }
 
+        fun setSshCompressionEnabled(enabled: Boolean) {
+            viewModelScope.launch {
+                settingsRepository.setSshCompressionEnabled(enabled)
+            }
+        }
+
         fun setTerminalHapticFeedbackEnabled(enabled: Boolean) {
             viewModelScope.launch {
                 settingsRepository.setTerminalHapticFeedbackEnabled(enabled)
@@ -281,6 +302,7 @@ private data class SettingsPreferences(
     val terminalShortcutLayout: String,
     val clipboardTimeoutSeconds: Int,
     val sshKeepaliveIntervalSeconds: Int,
+    val sshCompressionEnabled: Boolean,
 )
 
 private data class AuthPreferences(
@@ -304,6 +326,7 @@ private data class TerminalPreferences(
     val terminalShortcutLayout: String,
     val clipboardTimeoutSeconds: Int,
     val sshKeepaliveIntervalSeconds: Int,
+    val sshCompressionEnabled: Boolean,
 )
 
 private data class TerminalCorePreferences(
@@ -312,6 +335,7 @@ private data class TerminalCorePreferences(
     val fontSizeSp: Int,
     val clipboardTimeoutSeconds: Int,
     val sshKeepaliveIntervalSeconds: Int,
+    val sshCompressionEnabled: Boolean,
 )
 
 private data class TerminalInputFeedbackPreferences(

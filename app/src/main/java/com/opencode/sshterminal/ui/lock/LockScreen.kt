@@ -119,7 +119,10 @@ private fun UnlockContent(
         Spacer(modifier = Modifier.height(20.dp))
         Button(
             enabled = canUnlock,
-            onClick = { onUnlock(password) },
+            onClick = {
+                onUnlock(password)
+                password = ""
+            },
             modifier = Modifier.fillMaxWidth(),
         ) {
             Text(text = stringResource(R.string.lock_unlock_button))
@@ -218,6 +221,8 @@ private fun SetupContent(
                     localError = LockViewModel.ERROR_PASSWORDS_MISMATCH
                 } else {
                     onSetupPassword(password)
+                    password = ""
+                    confirmPassword = ""
                 }
             },
             modifier = Modifier.fillMaxWidth(),

@@ -58,25 +58,41 @@ class AuthRepository
         }
 
         suspend fun setMasterPassword(password: String) {
-            val salt = ByteArray(SALT_LENGTH_BYTES)
-            secureRandom.nextBytes(salt)
-            val hash = deriveHash(password = password, salt = salt)
-            dataStore.edit { prefs ->
-                prefs[PASSWORD_HASH_KEY] = Base64.encodeToString(hash, Base64.NO_WRAP)
-                prefs[PASSWORD_SALT_KEY] = Base64.encodeToString(salt, Base64.NO_WRAP)
-                prefs[APP_LOCK_ENABLED_KEY] = true
+            setMasterPassword(password.toCharArray())
+        }
+
+        suspend fun setMasterPassword(password: CharArray) {
+            try {
+                val salt = ByteArray(SALT_LENGTH_BYTES)
+                secureRandom.nextBytes(salt)
+                val hash = deriveHash(password = password, salt = salt)
+                dataStore.edit { prefs ->
+                    prefs[PASSWORD_HASH_KEY] = Base64.encodeToString(hash, Base64.NO_WRAP)
+                    prefs[PASSWORD_SALT_KEY] = Base64.encodeToString(salt, Base64.NO_WRAP)
+                    prefs[APP_LOCK_ENABLED_KEY] = true
+                }
+            } finally {
+                password.zeroize()
             }
         }
 
-        @Suppress("ReturnCount")
         suspend fun verifyPassword(password: String): Boolean {
-            val prefs = dataStore.data.first()
-            val storedHashEncoded = prefs[PASSWORD_HASH_KEY] ?: return false
-            val storedSaltEncoded = prefs[PASSWORD_SALT_KEY] ?: return false
-            val storedHash = Base64.decode(storedHashEncoded, Base64.DEFAULT)
-            val storedSalt = Base64.decode(storedSaltEncoded, Base64.DEFAULT)
-            val calculated = deriveHash(password = password, salt = storedSalt)
-            return MessageDigest.isEqual(storedHash, calculated)
+            return verifyPassword(password.toCharArray())
+        }
+
+        @Suppress("ReturnCount")
+        suspend fun verifyPassword(password: CharArray): Boolean {
+            return try {
+                val prefs = dataStore.data.first()
+                val storedHashEncoded = prefs[PASSWORD_HASH_KEY] ?: return false
+                val storedSaltEncoded = prefs[PASSWORD_SALT_KEY] ?: return false
+                val storedHash = Base64.decode(storedHashEncoded, Base64.DEFAULT)
+                val storedSalt = Base64.decode(storedSaltEncoded, Base64.DEFAULT)
+                val calculated = deriveHash(password = password, salt = storedSalt)
+                MessageDigest.isEqual(storedHash, calculated)
+            } finally {
+                password.zeroize()
+            }
         }
 
         suspend fun setBiometricEnabled(enabled: Boolean) {
@@ -92,15 +108,21 @@ class AuthRepository
         }
 
         private fun deriveHash(
-            password: String,
+            password: CharArray,
             salt: ByteArray,
         ): ByteArray {
-            val spec = PBEKeySpec(password.toCharArray(), salt, PBKDF2_ITERATIONS, DERIVED_KEY_BITS)
+            val passwordCopy = password.copyOf()
+            val spec = PBEKeySpec(passwordCopy, salt, PBKDF2_ITERATIONS, DERIVED_KEY_BITS)
             return try {
                 keyFactory.generateSecret(spec).encoded
             } finally {
                 spec.clearPassword()
+                passwordCopy.zeroize()
             }
+        }
+
+        private fun CharArray.zeroize() {
+            fill('\u0000')
         }
 
         companion object {

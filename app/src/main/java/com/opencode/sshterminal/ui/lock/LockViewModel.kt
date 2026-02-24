@@ -91,7 +91,7 @@ class LockViewModel
 
         fun unlock(password: String) {
             viewModelScope.launch {
-                val verified = authRepository.verifyPassword(password)
+                val verified = authRepository.verifyPassword(password.toCharArray())
                 if (verified) {
                     _error.value = null
                     _isLocked.value = false
@@ -103,7 +103,7 @@ class LockViewModel
 
         fun setupPassword(password: String) {
             viewModelScope.launch {
-                authRepository.setMasterPassword(password)
+                authRepository.setMasterPassword(password.toCharArray())
                 authRepository.setBiometricEnabled(biometricAvailable)
                 _error.value = null
                 _isFirstSetup.value = false

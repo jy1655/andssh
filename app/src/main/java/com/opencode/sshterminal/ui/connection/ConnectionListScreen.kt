@@ -566,6 +566,7 @@ private data class ConnectionDraft(
     val group: String = "",
     val terminalColorSchemeId: String = "",
     val startupCommand: String = "",
+    val environmentVariablesInput: String = "",
     val host: String = "",
     val proxyJump: String = "",
     val forwardAgent: Boolean = false,
@@ -584,6 +585,7 @@ private fun ConnectionProfile?.toDraft(): ConnectionDraft =
         group = this?.group.orEmpty(),
         terminalColorSchemeId = this?.terminalColorSchemeId.orEmpty(),
         startupCommand = this?.startupCommand.orEmpty(),
+        environmentVariablesInput = formatEnvironmentVariablesInput(this?.environmentVariables.orEmpty()),
         host = this?.host.orEmpty(),
         proxyJump = this?.proxyJump.orEmpty(),
         forwardAgent = this?.forwardAgent ?: false,
@@ -607,12 +609,14 @@ private fun ConnectionDraft.toProfileOrNull(
             .map { entry -> proxyJumpHostPortKey(entry.host, entry.port) }
             .toSet()
     val filteredProxyJumpIdentityIds = proxyJumpIdentityIds.filterKeys { key -> key in validHopKeys }
+    val parsedEnvironmentVariables = parseEnvironmentVariablesInput(environmentVariablesInput)
     return ConnectionProfile(
         id = initial?.id ?: UUID.randomUUID().toString(),
         name = name.ifBlank { "$username@$host" },
         group = group.trim().ifBlank { null },
         terminalColorSchemeId = terminalColorSchemeId.trim().ifBlank { null },
         startupCommand = startupCommand.trim().ifBlank { null },
+        environmentVariables = parsedEnvironmentVariables,
         host = host,
         proxyJump = proxyJump.trim().ifBlank { null },
         forwardAgent = forwardAgent,
@@ -805,6 +809,14 @@ private fun ConnectionFormFields(
         label = { Text(stringResource(R.string.connection_label_startup_command_optional)) },
         placeholder = { Text(stringResource(R.string.connection_startup_command_placeholder)) },
         maxLines = 3,
+        modifier = Modifier.fillMaxWidth(),
+    )
+    OutlinedTextField(
+        value = draft.environmentVariablesInput,
+        onValueChange = { onDraftChange(draft.copy(environmentVariablesInput = it)) },
+        label = { Text(stringResource(R.string.connection_label_environment_variables_optional)) },
+        placeholder = { Text(stringResource(R.string.connection_environment_variables_placeholder)) },
+        maxLines = 6,
         modifier = Modifier.fillMaxWidth(),
     )
     OutlinedTextField(

@@ -5,6 +5,7 @@ interface SshSession {
         termType: String,
         cols: Int,
         rows: Int,
+        environmentVariables: Map<String, String> = emptyMap(),
     )
 
     suspend fun readLoop(onBytes: (ByteArray) -> Unit)

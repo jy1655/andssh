@@ -44,6 +44,8 @@
     <string name="connection_terminal_scheme_use_app_default">Use app default</string>
     <string name="connection_label_startup_command_optional">Startup command (Optional)</string>
     <string name="connection_startup_command_placeholder">e.g. cd /srv/app &amp;&amp; tmux attach -t app</string>
+    <string name="connection_label_environment_variables_optional">Environment variables (Optional)</string>
+    <string name="connection_environment_variables_placeholder">One per line, e.g. APP_ENV=prod</string>
     <string name="connection_label_host">Host</string>
     <string name="connection_label_proxy_jump_optional">ProxyJump (Optional)</string>
     <string name="connection_proxy_jump_placeholder">e.g. user@bastion:22,jump2</string>

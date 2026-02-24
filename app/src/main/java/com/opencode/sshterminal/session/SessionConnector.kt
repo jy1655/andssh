@@ -161,7 +161,12 @@ internal class SessionConnector(
         request: ConnectRequest,
     ) {
         tabBridge.resize(request.cols, request.rows)
-        session.openPtyShell(request.termType, request.cols, request.rows)
+        session.openPtyShell(
+            termType = request.termType,
+            cols = request.cols,
+            rows = request.rows,
+            environmentVariables = request.environmentVariables,
+        )
         synchronized(tabRegistry) {
             val tab = tabRegistry[tabId] ?: return@synchronized
             tab.snapshotFlow.value =

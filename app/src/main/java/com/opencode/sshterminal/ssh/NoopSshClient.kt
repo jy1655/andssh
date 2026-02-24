@@ -13,6 +13,7 @@ class NoopSshClient : SshClient {
                 termType: String,
                 cols: Int,
                 rows: Int,
+                environmentVariables: Map<String, String>,
             ) {
                 open = true
             }

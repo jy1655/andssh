@@ -44,6 +44,8 @@
     <string name="connection_terminal_scheme_use_app_default">앱 기본값 사용</string>
     <string name="connection_label_startup_command_optional">시작 명령어 (선택)</string>
     <string name="connection_startup_command_placeholder">예: cd /srv/app &amp;&amp; tmux attach -t app</string>
+    <string name="connection_label_environment_variables_optional">환경 변수 (선택)</string>
+    <string name="connection_environment_variables_placeholder">한 줄당 1개, 예: APP_ENV=prod</string>
     <string name="connection_label_host">호스트</string>
     <string name="connection_label_proxy_jump_optional">ProxyJump (선택)</string>
     <string name="connection_proxy_jump_placeholder">예: user@bastion:22,jump2</string>

@@ -1026,10 +1026,16 @@ private class SshjSession(
         termType: String,
         cols: Int,
         rows: Int,
+        environmentVariables: Map<String, String>,
     ) = withContext(Dispatchers.IO) {
         // Best-effort: servers may reject (AcceptEnv policy)
         runCatching { session.setEnvVar("LANG", "en_US.UTF-8") }
         runCatching { session.setEnvVar("LC_CTYPE", "en_US.UTF-8") }
+        environmentVariables.forEach { (name, value) ->
+            if (name.isNotBlank()) {
+                runCatching { session.setEnvVar(name, value) }
+            }
+        }
         session.allocatePTY(termType, cols, rows, 0, 0, linkedMapOf<PTYMode, Int>())
         shell = session.startShell()
     }

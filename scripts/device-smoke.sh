@@ -31,7 +31,13 @@ if [[ "$RUN_TESTS" -eq 1 ]]; then
   ./gradlew --no-daemon :app:testDebugUnitTest
 fi
 
-./gradlew --no-daemon :app:installDebug
+./gradlew --no-daemon :app:assembleDebug
+APK_PATH="app/build/outputs/apk/debug/app-debug.apk"
+if [[ ! -f "$APK_PATH" ]]; then
+  echo "Debug APK not found at $APK_PATH"
+  exit 1
+fi
+"${ADB[@]}" install -r "$APK_PATH" >/dev/null
 "${ADB[@]}" shell am start --user current -n com.opencode.sshterminal/.app.MainActivity >/dev/null
 
 echo "Device smoke run complete on $DEVICE_SERIAL: app installed and launched."

@@ -102,6 +102,7 @@ fun TerminalScreen(
                     context.getString(R.string.terminal_connection_forwards_more, count)
                 },
             ).orEmpty()
+    val activeColorSchemeId = activeProfile?.terminalColorSchemeId ?: terminalColorSchemeId
     val screenModel =
         TerminalScreenModel(
             tabs = tabs,
@@ -109,7 +110,7 @@ fun TerminalScreen(
             activeSnapshot = activeSnapshot,
             activeConnectionId = activeTab?.connectionId,
             connectionInfo = connectionInfo,
-            terminalColorSchemeId = terminalColorSchemeId,
+            terminalColorSchemeId = activeColorSchemeId,
             terminalFontId = terminalFontId,
         )
     val screenCallbacks =

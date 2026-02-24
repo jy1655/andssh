@@ -64,6 +64,7 @@ import com.opencode.sshterminal.data.PortForwardType
 import com.opencode.sshterminal.data.ProxyJumpEntry
 import com.opencode.sshterminal.data.parseProxyJumpEntries
 import com.opencode.sshterminal.data.proxyJumpHostPortKey
+import com.opencode.sshterminal.terminal.TerminalColorSchemePreset
 import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -561,6 +562,7 @@ private fun ConnectionCard(
 private data class ConnectionDraft(
     val name: String = "",
     val group: String = "",
+    val terminalColorSchemeId: String = "",
     val host: String = "",
     val proxyJump: String = "",
     val port: String = "22",
@@ -576,6 +578,7 @@ private fun ConnectionProfile?.toDraft(): ConnectionDraft =
     ConnectionDraft(
         name = this?.name.orEmpty(),
         group = this?.group.orEmpty(),
+        terminalColorSchemeId = this?.terminalColorSchemeId.orEmpty(),
         host = this?.host.orEmpty(),
         proxyJump = this?.proxyJump.orEmpty(),
         port = this?.port?.toString() ?: "22",
@@ -602,6 +605,7 @@ private fun ConnectionDraft.toProfileOrNull(
         id = initial?.id ?: UUID.randomUUID().toString(),
         name = name.ifBlank { "$username@$host" },
         group = group.trim().ifBlank { null },
+        terminalColorSchemeId = terminalColorSchemeId.trim().ifBlank { null },
         host = host,
         proxyJump = proxyJump.trim().ifBlank { null },
         port = port.toIntOrNull()?.takeIf { it in 1..65535 } ?: 22,
@@ -773,6 +777,12 @@ private fun ConnectionFormFields(
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
     )
+    ConnectionTerminalSchemeField(
+        selectedSchemeId = draft.terminalColorSchemeId,
+        onSelectSchemeId = { schemeId ->
+            onDraftChange(draft.copy(terminalColorSchemeId = schemeId))
+        },
+    )
     OutlinedTextField(
         value = draft.host,
         onValueChange = { onDraftChange(draft.copy(host = it)) },
@@ -888,6 +898,50 @@ private fun IdentitySelectorField(
                     onClick = {
                         expanded = false
                         onSelectIdentity(identity)
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ConnectionTerminalSchemeField(
+    selectedSchemeId: String,
+    onSelectSchemeId: (String) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedLabel =
+        if (selectedSchemeId.isBlank()) {
+            stringResource(R.string.connection_terminal_scheme_use_app_default)
+        } else {
+            TerminalColorSchemePreset.fromId(selectedSchemeId).displayName
+        }
+
+    Box(modifier = Modifier.fillMaxWidth()) {
+        OutlinedButton(
+            onClick = { expanded = true },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("${stringResource(R.string.connection_terminal_scheme_label)}: $selectedLabel")
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.connection_terminal_scheme_use_app_default)) },
+                onClick = {
+                    expanded = false
+                    onSelectSchemeId("")
+                },
+            )
+            TerminalColorSchemePreset.entries.forEach { preset ->
+                DropdownMenuItem(
+                    text = { Text(preset.displayName) },
+                    onClick = {
+                        expanded = false
+                        onSelectSchemeId(preset.id)
                     },
                 )
             }

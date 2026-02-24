@@ -38,6 +38,8 @@
     <string name="connection_sheet_new_title">New Connection</string>
     <string name="connection_label_name">Name</string>
     <string name="connection_label_group_optional">Group (Optional)</string>
+    <string name="connection_terminal_scheme_label">Terminal color scheme</string>
+    <string name="connection_terminal_scheme_use_app_default">Use app default</string>
     <string name="connection_label_host">Host</string>
     <string name="connection_label_proxy_jump_optional">ProxyJump (Optional)</string>
     <string name="connection_proxy_jump_placeholder">e.g. user@bastion:22,jump2</string>

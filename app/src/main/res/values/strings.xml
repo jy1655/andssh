@@ -64,6 +64,10 @@
     <string name="connection_port_forward_target_port">Target Port</string>
     <string name="connection_move_up_short">Up</string>
     <string name="connection_move_down_short">Down</string>
+    <string name="connection_port_forward_presets_title">Quick Presets</string>
+    <string name="connection_port_forward_preset_web">Web 8080</string>
+    <string name="connection_port_forward_preset_https">HTTPS 8443</string>
+    <string name="connection_port_forward_preset_socks">SOCKS 1080</string>
     <string name="connection_settings">Settings</string>
 
     <string name="terminal_new_tab">New tab</string>

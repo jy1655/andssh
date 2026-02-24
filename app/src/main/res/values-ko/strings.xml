@@ -64,6 +64,10 @@
     <string name="connection_port_forward_target_port">대상 포트</string>
     <string name="connection_move_up_short">위로</string>
     <string name="connection_move_down_short">아래로</string>
+    <string name="connection_port_forward_presets_title">빠른 프리셋</string>
+    <string name="connection_port_forward_preset_web">웹 8080</string>
+    <string name="connection_port_forward_preset_https">HTTPS 8443</string>
+    <string name="connection_port_forward_preset_socks">SOCKS 1080</string>
     <string name="connection_settings">설정</string>
 
     <string name="terminal_new_tab">새 탭</string>

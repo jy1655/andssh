@@ -711,6 +711,7 @@ private fun PortForwardRulesSection(
             }
         }
     }
+    PortForwardPresetSection(onAddRule = onAddRule)
     if (rules.isEmpty()) {
         Text(
             text = stringResource(R.string.connection_port_forward_rules_empty),
@@ -776,6 +777,65 @@ private fun PortForwardRulesSection(
                 editingRuleIndex = null
             },
         )
+    }
+}
+
+@Composable
+private fun PortForwardPresetSection(onAddRule: (PortForwardRule) -> Unit) {
+    Text(
+        text = stringResource(R.string.connection_port_forward_presets_title),
+        style = MaterialTheme.typography.labelMedium,
+    )
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        OutlinedButton(
+            onClick = {
+                onAddRule(
+                    PortForwardRule(
+                        type = PortForwardType.LOCAL,
+                        bindHost = "127.0.0.1",
+                        bindPort = 8080,
+                        targetHost = "127.0.0.1",
+                        targetPort = 80,
+                    ),
+                )
+            },
+            modifier = Modifier.weight(1f),
+        ) {
+            Text(stringResource(R.string.connection_port_forward_preset_web))
+        }
+        OutlinedButton(
+            onClick = {
+                onAddRule(
+                    PortForwardRule(
+                        type = PortForwardType.LOCAL,
+                        bindHost = "127.0.0.1",
+                        bindPort = 8443,
+                        targetHost = "127.0.0.1",
+                        targetPort = 443,
+                    ),
+                )
+            },
+            modifier = Modifier.weight(1f),
+        ) {
+            Text(stringResource(R.string.connection_port_forward_preset_https))
+        }
+    }
+    OutlinedButton(
+        onClick = {
+            onAddRule(
+                PortForwardRule(
+                    type = PortForwardType.DYNAMIC,
+                    bindHost = "127.0.0.1",
+                    bindPort = 1080,
+                ),
+            )
+        },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(stringResource(R.string.connection_port_forward_preset_socks))
     }
 }
 

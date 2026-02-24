@@ -223,6 +223,7 @@
     <string name="settings_font">폰트</string>
     <string name="settings_clipboard_clear">클립보드 자동 삭제</string>
     <string name="settings_ssh_keepalive">SSH Keepalive</string>
+    <string name="settings_haptic_feedback">키 햅틱 피드백</string>
     <string name="settings_crash_logs_count">%d개의 보고서</string>
     <string name="settings_timeout_30s">30초</string>
     <string name="settings_timeout_1m">1분</string>

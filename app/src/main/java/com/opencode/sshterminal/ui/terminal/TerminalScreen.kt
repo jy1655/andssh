@@ -71,6 +71,7 @@ fun TerminalScreen(
     val snippets by viewModel.snippets.collectAsState()
     val terminalColorSchemeId by viewModel.terminalColorSchemeId.collectAsState()
     val terminalFontId by viewModel.terminalFont.collectAsState()
+    val terminalHapticFeedbackEnabled by viewModel.terminalHapticFeedbackEnabled.collectAsState()
     var hadTabs by remember { mutableStateOf(false) }
     var showConnectionPicker by remember { mutableStateOf(false) }
     var showSnippetSheet by remember { mutableStateOf(false) }
@@ -112,6 +113,7 @@ fun TerminalScreen(
             connectionInfo = connectionInfo,
             terminalColorSchemeId = activeColorSchemeId,
             terminalFontId = terminalFontId,
+            terminalHapticFeedbackEnabled = terminalHapticFeedbackEnabled,
         )
     val screenCallbacks =
         TerminalScreenCallbacks(
@@ -171,6 +173,7 @@ private data class TerminalScreenModel(
     val connectionInfo: String,
     val terminalColorSchemeId: String,
     val terminalFontId: String,
+    val terminalHapticFeedbackEnabled: Boolean,
 )
 
 private data class TerminalScreenCallbacks(
@@ -309,6 +312,7 @@ private fun TerminalMainColumn(
             onMenuClick = callbacks.onOpenDrawer,
             onSnippetClick = callbacks.onShowSnippets,
             onPageScroll = callbacks.onPageScroll,
+            isHapticFeedbackEnabled = model.terminalHapticFeedbackEnabled,
             focusSignal = imeFocusSignal,
             modifier = Modifier.fillMaxWidth(),
         )

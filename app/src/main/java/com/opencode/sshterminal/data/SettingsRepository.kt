@@ -57,6 +57,11 @@ class SettingsRepository
                 prefs[SCREENSHOT_PROTECTION_ENABLED_KEY] ?: DEFAULT_SCREENSHOT_PROTECTION_ENABLED
             }
 
+        val terminalHapticFeedbackEnabled: Flow<Boolean> =
+            dataStore.data.map { prefs ->
+                prefs[TERMINAL_HAPTIC_FEEDBACK_ENABLED_KEY] ?: DEFAULT_TERMINAL_HAPTIC_FEEDBACK_ENABLED
+            }
+
         suspend fun setLanguageTag(tag: String) {
             dataStore.edit { prefs -> prefs[LANGUAGE_TAG_KEY] = tag }
         }
@@ -89,6 +94,10 @@ class SettingsRepository
             dataStore.edit { prefs -> prefs[SCREENSHOT_PROTECTION_ENABLED_KEY] = enabled }
         }
 
+        suspend fun setTerminalHapticFeedbackEnabled(enabled: Boolean) {
+            dataStore.edit { prefs -> prefs[TERMINAL_HAPTIC_FEEDBACK_ENABLED_KEY] = enabled }
+        }
+
         companion object {
             private val LANGUAGE_TAG_KEY = stringPreferencesKey("pref_language_tag")
             private val THEME_PRESET_KEY = stringPreferencesKey("pref_theme_preset")
@@ -98,6 +107,7 @@ class SettingsRepository
             private val TERMINAL_FONT_KEY = stringPreferencesKey("pref_terminal_font")
             private val SSH_KEEPALIVE_INTERVAL_SECONDS_KEY = intPreferencesKey("pref_ssh_keepalive_interval_seconds")
             private val SCREENSHOT_PROTECTION_ENABLED_KEY = booleanPreferencesKey("pref_screenshot_protection_enabled")
+            private val TERMINAL_HAPTIC_FEEDBACK_ENABLED_KEY = booleanPreferencesKey("pref_terminal_haptic_feedback_enabled")
             const val DEFAULT_LANGUAGE_TAG = ""
             const val DEFAULT_THEME_PRESET = "green"
             const val DEFAULT_CLIPBOARD_TIMEOUT = 30
@@ -106,5 +116,6 @@ class SettingsRepository
             const val DEFAULT_TERMINAL_FONT = "meslo_nerd"
             const val DEFAULT_SSH_KEEPALIVE_INTERVAL = 15
             const val DEFAULT_SCREENSHOT_PROTECTION_ENABLED = false
+            const val DEFAULT_TERMINAL_HAPTIC_FEEDBACK_ENABLED = true
         }
     }

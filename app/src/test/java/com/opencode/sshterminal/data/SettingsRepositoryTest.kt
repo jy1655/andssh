@@ -127,4 +127,23 @@ class SettingsRepositoryTest {
             repo.setScreenshotProtectionEnabled(true)
             assertEquals(true, repo.screenshotProtectionEnabled.first())
         }
+
+    @Test
+    fun `default terminal haptic feedback is enabled`() =
+        runTest(testDispatcher) {
+            val repo = SettingsRepository(createDataStore())
+            assertEquals(
+                SettingsRepository.DEFAULT_TERMINAL_HAPTIC_FEEDBACK_ENABLED,
+                repo.terminalHapticFeedbackEnabled.first(),
+            )
+        }
+
+    @Test
+    fun `setTerminalHapticFeedbackEnabled persists value`() =
+        runTest(testDispatcher) {
+            val ds = createDataStore()
+            val repo = SettingsRepository(ds)
+            repo.setTerminalHapticFeedbackEnabled(false)
+            assertEquals(false, repo.terminalHapticFeedbackEnabled.first())
+        }
 }

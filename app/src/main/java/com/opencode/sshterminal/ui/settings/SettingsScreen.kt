@@ -394,6 +394,12 @@ private fun TerminalSection(
                 value = keepaliveLabel,
                 onClick = { showKeepaliveDialog = true },
             )
+            SettingsDivider()
+            SettingsSwitchRow(
+                title = stringResource(R.string.settings_haptic_feedback),
+                checked = state.terminalHapticFeedbackEnabled,
+                onToggle = viewModel::setTerminalHapticFeedbackEnabled,
+            )
         }
     }
 

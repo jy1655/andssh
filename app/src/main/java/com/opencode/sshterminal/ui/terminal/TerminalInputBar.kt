@@ -30,7 +30,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
@@ -47,10 +49,20 @@ fun TerminalInputBar(
     onMenuClick: (() -> Unit)? = null,
     onSnippetClick: (() -> Unit)? = null,
     onPageScroll: ((Int) -> Unit)? = null,
+    isHapticFeedbackEnabled: Boolean = true,
     focusSignal: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     val controller = rememberTerminalInputController(onSendBytes)
+    val hapticFeedback = LocalHapticFeedback.current
+    val onKeyTap =
+        remember(hapticFeedback, isHapticFeedbackEnabled) {
+            {
+                if (isHapticFeedbackEnabled) {
+                    hapticFeedback.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                }
+            }
+        }
 
     val shortcutActions =
         TerminalShortcutActions(
@@ -82,12 +94,14 @@ fun TerminalInputBar(
                     ),
                 actions = shortcutActions,
                 onSendBytes = onSendBytes,
+                onKeyTap = onKeyTap,
             )
             TerminalTextInputRow(
                 focusSignal = focusSignal,
                 textFieldValue = controller.textFieldValue,
                 onValueChange = controller::onTextFieldValueChange,
                 onSubmit = controller::submitInput,
+                onKeyTap = onKeyTap,
             )
         }
     }
@@ -112,6 +126,7 @@ private fun TerminalShortcutRow(
     state: TerminalModifierState,
     actions: TerminalShortcutActions,
     onSendBytes: (ByteArray) -> Unit,
+    onKeyTap: () -> Unit,
 ) {
     val context = LocalContext.current
     Row(
@@ -123,25 +138,29 @@ private fun TerminalShortcutRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         actions.onMenuClick?.let { onMenuClick ->
-            KeyChip("\u2630", onClick = onMenuClick)
+            KeyChip("\u2630", onTap = onKeyTap, onClick = onMenuClick)
         }
         actions.onSnippetClick?.let { onSnippetClick ->
-            KeyChip(stringResource(R.string.terminal_snippets_short), onClick = onSnippetClick)
+            KeyChip(
+                label = stringResource(R.string.terminal_snippets_short),
+                onTap = onKeyTap,
+                onClick = onSnippetClick,
+            )
         }
-        KeyChip("ESC") { actions.onShortcut(TerminalShortcut.ESC) }
-        KeyChip("TAB") { actions.onShortcut(TerminalShortcut.TAB) }
-        ToggleKeyChip("Ctrl", state.ctrlArmed, onClick = actions.onToggleCtrl)
-        ToggleKeyChip("Alt", state.altArmed, onClick = actions.onToggleAlt)
-        KeyChip("\u2191") { actions.onShortcut(TerminalShortcut.ARROW_UP) }
-        KeyChip("\u2193") { actions.onShortcut(TerminalShortcut.ARROW_DOWN) }
-        KeyChip("\u2190") { actions.onShortcut(TerminalShortcut.ARROW_LEFT) }
-        KeyChip("\u2192") { actions.onShortcut(TerminalShortcut.ARROW_RIGHT) }
-        KeyChip("\u232B") { actions.onShortcut(TerminalShortcut.BACKSPACE) }
-        KeyChip("PgUp") { actions.onPageScroll?.invoke(1) }
-        KeyChip("PgDn") { actions.onPageScroll?.invoke(-1) }
-        KeyChip("^C") { actions.onShortcut(TerminalShortcut.CTRL_C) }
-        KeyChip("^D") { actions.onShortcut(TerminalShortcut.CTRL_D) }
-        KeyChip(stringResource(R.string.terminal_paste)) {
+        KeyChip("ESC", onTap = onKeyTap) { actions.onShortcut(TerminalShortcut.ESC) }
+        KeyChip("TAB", onTap = onKeyTap) { actions.onShortcut(TerminalShortcut.TAB) }
+        ToggleKeyChip("Ctrl", state.ctrlArmed, onTap = onKeyTap, onClick = actions.onToggleCtrl)
+        ToggleKeyChip("Alt", state.altArmed, onTap = onKeyTap, onClick = actions.onToggleAlt)
+        KeyChip("\u2191", onTap = onKeyTap) { actions.onShortcut(TerminalShortcut.ARROW_UP) }
+        KeyChip("\u2193", onTap = onKeyTap) { actions.onShortcut(TerminalShortcut.ARROW_DOWN) }
+        KeyChip("\u2190", onTap = onKeyTap) { actions.onShortcut(TerminalShortcut.ARROW_LEFT) }
+        KeyChip("\u2192", onTap = onKeyTap) { actions.onShortcut(TerminalShortcut.ARROW_RIGHT) }
+        KeyChip("\u232B", onTap = onKeyTap) { actions.onShortcut(TerminalShortcut.BACKSPACE) }
+        KeyChip("PgUp", onTap = onKeyTap) { actions.onPageScroll?.invoke(1) }
+        KeyChip("PgDn", onTap = onKeyTap) { actions.onPageScroll?.invoke(-1) }
+        KeyChip("^C", onTap = onKeyTap) { actions.onShortcut(TerminalShortcut.CTRL_C) }
+        KeyChip("^D", onTap = onKeyTap) { actions.onShortcut(TerminalShortcut.CTRL_D) }
+        KeyChip(stringResource(R.string.terminal_paste), onTap = onKeyTap) {
             val clipboard =
                 context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
             val text = clipboard?.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString()
@@ -158,6 +177,7 @@ private fun TerminalTextInputRow(
     textFieldValue: TextFieldValue,
     onValueChange: (TextFieldValue) -> Unit,
     onSubmit: () -> Unit,
+    onKeyTap: () -> Unit,
 ) {
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -214,13 +234,14 @@ private fun TerminalTextInputRow(
             },
         )
 
-        KeyChip("\u23CE", onClick = onSubmit)
+        KeyChip("\u23CE", onTap = onKeyTap, onClick = onSubmit)
     }
 }
 
 @Composable
 private fun KeyChip(
     label: String,
+    onTap: (() -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     Surface(
@@ -228,7 +249,10 @@ private fun KeyChip(
             Modifier
                 .height(34.dp)
                 .widthIn(min = 36.dp)
-                .clickable(onClick = onClick),
+                .clickable {
+                    onTap?.invoke()
+                    onClick()
+                },
         shape = RoundedCornerShape(6.dp),
         color = MaterialTheme.colorScheme.surface,
         tonalElevation = 1.dp,
@@ -254,6 +278,7 @@ private fun KeyChip(
 private fun ToggleKeyChip(
     label: String,
     armed: Boolean,
+    onTap: (() -> Unit)? = null,
     onClick: () -> Unit,
 ) {
     val bg = if (armed) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface
@@ -264,7 +289,10 @@ private fun ToggleKeyChip(
             Modifier
                 .height(34.dp)
                 .widthIn(min = 40.dp)
-                .clickable(onClick = onClick),
+                .clickable {
+                    onTap?.invoke()
+                    onClick()
+                },
         shape = RoundedCornerShape(6.dp),
         color = bg,
         tonalElevation = 1.dp,

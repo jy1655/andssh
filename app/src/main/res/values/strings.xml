@@ -223,6 +223,7 @@
     <string name="settings_font">Font</string>
     <string name="settings_clipboard_clear">Clipboard Auto-clear</string>
     <string name="settings_ssh_keepalive">SSH Keepalive</string>
+    <string name="settings_haptic_feedback">Key Haptic Feedback</string>
     <string name="settings_crash_logs_count">%d reports</string>
     <string name="settings_timeout_30s">30 seconds</string>
     <string name="settings_timeout_1m">1 minute</string>

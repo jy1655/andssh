@@ -26,6 +26,7 @@ data class SettingsUiState(
     val autoLockTimeoutSeconds: Int = 60,
     val terminalColorScheme: String = "default",
     val terminalFont: String = "meslo_nerd",
+    val terminalHapticFeedbackEnabled: Boolean = SettingsRepository.DEFAULT_TERMINAL_HAPTIC_FEEDBACK_ENABLED,
     val clipboardTimeoutSeconds: Int = 30,
     val sshKeepaliveIntervalSeconds: Int = SettingsRepository.DEFAULT_SSH_KEEPALIVE_INTERVAL,
     val crashReportCount: Int = 0,
@@ -60,12 +61,14 @@ class SettingsViewModel
                 settingsRepository.terminalFont,
                 settingsRepository.clipboardTimeoutSeconds,
                 settingsRepository.sshKeepaliveIntervalSeconds,
-            ) { scheme, font, clipboardTimeout, keepaliveInterval ->
+                settingsRepository.terminalHapticFeedbackEnabled,
+            ) { scheme, font, clipboardTimeout, keepaliveInterval, hapticFeedbackEnabled ->
                 TerminalPreferences(
                     colorScheme = scheme,
                     font = font,
                     clipboardTimeoutSeconds = clipboardTimeout,
                     sshKeepaliveIntervalSeconds = keepaliveInterval,
+                    terminalHapticFeedbackEnabled = hapticFeedbackEnabled,
                 )
             }
 
@@ -80,6 +83,7 @@ class SettingsViewModel
                     terminalFont = terminalPrefs.font,
                     clipboardTimeoutSeconds = terminalPrefs.clipboardTimeoutSeconds,
                     sshKeepaliveIntervalSeconds = terminalPrefs.sshKeepaliveIntervalSeconds,
+                    terminalHapticFeedbackEnabled = terminalPrefs.terminalHapticFeedbackEnabled,
                 )
             }
 
@@ -107,6 +111,7 @@ class SettingsViewModel
                     autoLockTimeoutSeconds = prefs.autoLockTimeoutSeconds,
                     terminalColorScheme = prefs.terminalColorScheme,
                     terminalFont = prefs.terminalFont,
+                    terminalHapticFeedbackEnabled = prefs.terminalHapticFeedbackEnabled,
                     clipboardTimeoutSeconds = prefs.clipboardTimeoutSeconds,
                     sshKeepaliveIntervalSeconds = prefs.sshKeepaliveIntervalSeconds,
                     crashReportCount = crashCount,
@@ -184,6 +189,12 @@ class SettingsViewModel
             }
         }
 
+        fun setTerminalHapticFeedbackEnabled(enabled: Boolean) {
+            viewModelScope.launch {
+                settingsRepository.setTerminalHapticFeedbackEnabled(enabled)
+            }
+        }
+
         companion object {
             private const val STATE_FLOW_TIMEOUT_MS = 5_000L
         }
@@ -196,6 +207,7 @@ private data class SettingsPreferences(
     val screenshotProtectionEnabled: Boolean,
     val terminalColorScheme: String,
     val terminalFont: String,
+    val terminalHapticFeedbackEnabled: Boolean,
     val clipboardTimeoutSeconds: Int,
     val sshKeepaliveIntervalSeconds: Int,
 )
@@ -215,6 +227,7 @@ private data class BasePreferences(
 private data class TerminalPreferences(
     val colorScheme: String,
     val font: String,
+    val terminalHapticFeedbackEnabled: Boolean,
     val clipboardTimeoutSeconds: Int,
     val sshKeepaliveIntervalSeconds: Int,
 )

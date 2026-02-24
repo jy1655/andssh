@@ -93,6 +93,12 @@ export PATH="$JAVA_HOME/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH"
 ./scripts/device-smoke.sh --skip-tests
 ```
 
+- If multiple devices are connected, select one with `ANDROID_SERIAL`:
+
+```bash
+ANDROID_SERIAL=<device-id> ./scripts/device-smoke.sh
+```
+
 ## Release build for Google Play
 
 1. Bump release version in `app/build.gradle.kts`:

@@ -14,9 +14,16 @@ if ! command -v adb >/dev/null 2>&1; then
   exit 1
 fi
 
-adb wait-for-device >/dev/null
-if [[ "$(adb get-state 2>/dev/null)" != "device" ]]; then
-  echo "No authorized Android device found (adb get-state != device)."
+DEVICE_SERIAL="${ANDROID_SERIAL:-$(adb devices | awk 'NR>1 && $2=="device" {print $1; exit}')}"
+if [[ -z "$DEVICE_SERIAL" ]]; then
+  echo "No authorized Android device found."
+  adb devices
+  exit 1
+fi
+
+ADB=(adb -s "$DEVICE_SERIAL")
+if [[ "$("${ADB[@]}" get-state 2>/dev/null)" != "device" ]]; then
+  echo "Selected device is not ready: $DEVICE_SERIAL"
   exit 1
 fi
 
@@ -25,6 +32,6 @@ if [[ "$RUN_TESTS" -eq 1 ]]; then
 fi
 
 ./gradlew --no-daemon :app:installDebug
-adb shell am start --user current -n com.opencode.sshterminal/.app.MainActivity >/dev/null
+"${ADB[@]}" shell am start --user current -n com.opencode.sshterminal/.app.MainActivity >/dev/null
 
-echo "Device smoke run complete: app installed and launched."
+echo "Device smoke run complete on $DEVICE_SERIAL: app installed and launched."

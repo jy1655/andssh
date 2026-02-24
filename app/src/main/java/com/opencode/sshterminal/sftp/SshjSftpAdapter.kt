@@ -112,12 +112,7 @@ class SshjSftpAdapter : SftpChannelAdapter {
 
     override suspend fun rm(remotePath: String) =
         withContext(Dispatchers.IO) {
-            val attrs = requireSftp().stat(remotePath)
-            if (attrs.type == net.schmizz.sshj.sftp.FileMode.Type.DIRECTORY) {
-                requireSftp().rmdir(remotePath)
-            } else {
-                requireSftp().rm(remotePath)
-            }
+            removeRecursively(requireSftp(), remotePath)
         }
 
     override suspend fun rename(
@@ -128,6 +123,22 @@ class SshjSftpAdapter : SftpChannelAdapter {
     }
 
     private fun requireSftp(): SFTPClient = sftp ?: error("Not connected. Call connect() first.")
+
+    private fun removeRecursively(
+        sftpClient: SFTPClient,
+        remotePath: String,
+    ) {
+        val attrs = sftpClient.stat(remotePath)
+        if (attrs.type == net.schmizz.sshj.sftp.FileMode.Type.DIRECTORY) {
+            sftpClient
+                .ls(remotePath)
+                .filterNot { info -> info.name == "." || info.name == ".." }
+                .forEach { child -> removeRecursively(sftpClient, child.path) }
+            sftpClient.rmdir(remotePath)
+        } else {
+            sftpClient.rm(remotePath)
+        }
+    }
 
     private fun configureHostKeyVerifier(
         ssh: SSHClient,

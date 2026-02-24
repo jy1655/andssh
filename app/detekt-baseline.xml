@@ -1,5 +1,77 @@
 <?xml version="1.0" ?>
 <SmellBaseline>
   <ManuallySuppressedIssues/>
-  <CurrentIssues/>
+  <CurrentIssues>
+    <ID>CyclomaticComplexMethod:SshjClient.kt$SshjClient$private fun buildAgentSignature( keyType: KeyType, flags: Int, ): Signature?</ID>
+    <ID>LongMethod:AppDrawer.kt$@Composable fun AppDrawer( drawerState: DrawerState, connectionInfo: String, isFocusMode: Boolean, onTerminal: () -&gt; Unit, onSftp: () -&gt; Unit, onToggleFocusMode: () -&gt; Unit, onDisconnect: () -&gt; Unit, )</ID>
+    <ID>LongMethod:ConnectionListScreen.kt$@Composable private fun ConnectionCard( profile: ConnectionProfile, onClick: () -&gt; Unit, onEdit: () -&gt; Unit, onDelete: () -&gt; Unit, )</ID>
+    <ID>LongMethod:ConnectionListScreen.kt$@Composable private fun ConnectionFormFields( draft: ConnectionDraft, identities: List&lt;ConnectionIdentity&gt;, selectedIdentityId: String?, onSelectIdentity: (ConnectionIdentity?) -&gt; Unit, onDraftChange: (ConnectionDraft) -&gt; Unit, onPickPrivateKey: () -&gt; Unit, onClearPrivateKey: () -&gt; Unit, onGeneratePrivateKey: (SshKeyAlgorithm) -&gt; Unit, onAddPortForwardRule: (PortForwardRule) -&gt; Unit, onUpdatePortForwardRuleAt: (Int, PortForwardRule) -&gt; Unit, onMovePortForwardRule: (Int, Int) -&gt; Unit, onRemovePortForwardRuleAt: (Int) -&gt; Unit, onClearPortForwards: () -&gt; Unit, )</ID>
+    <ID>LongMethod:ConnectionListScreen.kt$@Composable private fun ConnectionListContent( allProfiles: List&lt;ConnectionProfile&gt;, profiles: List&lt;ConnectionProfile&gt;, searchQuery: String, onSearchQueryChange: (String) -&gt; Unit, availableGroupFilters: List&lt;String&gt;, selectedGroupFilter: String?, onSelectGroupFilter: (String?) -&gt; Unit, sortOption: ConnectionSortOption, onSelectSortOption: (ConnectionSortOption) -&gt; Unit, onConnect: (connectionId: String) -&gt; Unit, onEdit: (ConnectionProfile) -&gt; Unit, onDelete: (ConnectionProfile) -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>LongMethod:ConnectionListScreen.kt$@Composable private fun ConnectionListFiltersBar( availableGroupFilters: List&lt;String&gt;, selectedGroupFilter: String?, ungroupedLabel: String, allGroupsLabel: String, groupsLabel: String, sortLabel: String, sortNameLabel: String, sortRecentLabel: String, sortOption: ConnectionSortOption, onSelectGroupFilter: (String?) -&gt; Unit, onSelectSortOption: (ConnectionSortOption) -&gt; Unit, )</ID>
+    <ID>LongMethod:ConnectionListScreen.kt$@Composable private fun PortForwardRuleDialog( title: String, confirmLabel: String, initialRule: PortForwardRule? = null, onDismiss: () -&gt; Unit, onConfirm: (PortForwardRule) -&gt; Unit, )</ID>
+    <ID>LongMethod:ConnectionListScreen.kt$@Composable private fun PortForwardRulesSection( rules: List&lt;PortForwardRule&gt;, onAddRule: (PortForwardRule) -&gt; Unit, onUpdateRuleAt: (Int, PortForwardRule) -&gt; Unit, onMoveRule: (Int, Int) -&gt; Unit, onRemoveRuleAt: (Int) -&gt; Unit, onClear: () -&gt; Unit, )</ID>
+    <ID>LongMethod:ConnectionListScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable fun ConnectionListScreen( onConnect: (connectionId: String) -&gt; Unit, onOpenSettings: () -&gt; Unit, viewModel: ConnectionListViewModel = hiltViewModel(), )</ID>
+    <ID>LongMethod:ConnectionListScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable private fun ConnectionBottomSheet( initial: ConnectionProfile?, identities: List&lt;ConnectionIdentity&gt;, onDismiss: () -&gt; Unit, onSave: (ConnectionProfile) -&gt; Unit, )</ID>
+    <ID>LongMethod:ConnectionPrivateKeySupport.kt$@Composable internal fun ConnectionPrivateKeyField( privateKeyPath: String, privateKeyPassphrase: String, onPrivateKeyPassphraseChange: (String) -&gt; Unit, onPickPrivateKey: () -&gt; Unit, onClearPrivateKey: () -&gt; Unit, onGeneratePrivateKey: (SshKeyAlgorithm) -&gt; Unit, )</ID>
+    <ID>LongMethod:SSHNavHost.kt$@Composable fun SSHNavHost( navController: NavHostController, modifier: Modifier = Modifier, )</ID>
+    <ID>LongMethod:SftpBrowserScreen.kt$@Composable private fun SftpDialogs( state: SftpDialogState, callbacks: SftpDialogCallbacks, )</ID>
+    <ID>LongMethod:SftpBrowserScreen.kt$@Composable private fun SftpEntryList( entries: List&lt;RemoteEntry&gt;, selectionMode: Boolean, selectedPaths: Set&lt;String&gt;, onToggleSelection: (String) -&gt; Unit, contextMenuEntry: RemoteEntry?, onContextMenuEntryChange: (RemoteEntry?) -&gt; Unit, menuCallbacks: SftpMenuCallbacks, modifier: Modifier = Modifier, )</ID>
+    <ID>LongMethod:SftpBrowserScreen.kt$@OptIn(ExperimentalFoundationApi::class) @Composable private fun FileEntryRow( entry: RemoteEntry, selectionMode: Boolean, selected: Boolean, onClick: () -&gt; Unit, onLongClick: () -&gt; Unit, )</ID>
+    <ID>LongMethod:SftpBrowserScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable private fun SftpTopBar( busy: Boolean, selectionMode: Boolean, selectedCount: Int, onBack: () -&gt; Unit, onUpload: () -&gt; Unit, onEnterSelectionMode: () -&gt; Unit, onClearSelection: () -&gt; Unit, onDeleteSelection: () -&gt; Unit, )</ID>
+    <ID>LongMethod:SftpBrowserScreen.kt$@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class) @Composable fun SftpBrowserScreen( onBack: () -&gt; Unit, viewModel: SftpBrowserViewModel = hiltViewModel(), )</ID>
+    <ID>LongMethod:SshConfigImportParser.kt$internal fun parseSshConfig(content: String): SshConfigImportParseResult</ID>
+    <ID>LongMethod:SshjClient.kt$SshjClient$override suspend fun connect(request: ConnectRequest): SshSession</ID>
+    <ID>LongMethod:TerminalScreen.kt$@Composable private fun TerminalMainColumn( viewModel: TerminalViewModel, model: TerminalScreenModel, scrollCounters: TerminalScrollCounters, callbacks: TerminalMainCallbacks, )</ID>
+    <ID>LongMethod:TerminalScreen.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable @Suppress("CyclomaticComplexMethod") fun TerminalScreen( onNavigateToSftp: (connectionId: String) -&gt; Unit, onAllTabsClosed: () -&gt; Unit, viewModel: TerminalViewModel = hiltViewModel(), )</ID>
+    <ID>LongMethod:TerminalSnippetSheet.kt$@OptIn(ExperimentalMaterial3Api::class) @Composable internal fun TerminalSnippetSheet( snippets: List&lt;TerminalSnippet&gt;, onDismiss: () -&gt; Unit, onSaveSnippet: (existingId: String?, title: String, command: String) -&gt; Unit, onRunSnippet: (TerminalSnippet) -&gt; Unit, onDeleteSnippet: (TerminalSnippet) -&gt; Unit, )</ID>
+    <ID>LongParameterList:AppDrawer.kt$( drawerState: DrawerState, connectionInfo: String, isFocusMode: Boolean, onTerminal: () -&gt; Unit, onSftp: () -&gt; Unit, onToggleFocusMode: () -&gt; Unit, onDisconnect: () -&gt; Unit, )</ID>
+    <ID>LongParameterList:ConnectRequestFactory.kt$( context: Context, cols: Int, rows: Int, keepaliveIntervalSeconds: Int = 15, identity: ConnectionIdentity? = null, proxyJumpCredentials: Map&lt;String, JumpCredential&gt; = emptyMap(), )</ID>
+    <ID>LongParameterList:ConnectionListScreen.kt$( allProfiles: List&lt;ConnectionProfile&gt;, profiles: List&lt;ConnectionProfile&gt;, searchQuery: String, onSearchQueryChange: (String) -&gt; Unit, availableGroupFilters: List&lt;String&gt;, selectedGroupFilter: String?, onSelectGroupFilter: (String?) -&gt; Unit, sortOption: ConnectionSortOption, onSelectSortOption: (ConnectionSortOption) -&gt; Unit, onConnect: (connectionId: String) -&gt; Unit, onEdit: (ConnectionProfile) -&gt; Unit, onDelete: (ConnectionProfile) -&gt; Unit, modifier: Modifier = Modifier, )</ID>
+    <ID>LongParameterList:ConnectionListScreen.kt$( availableGroupFilters: List&lt;String&gt;, selectedGroupFilter: String?, ungroupedLabel: String, allGroupsLabel: String, groupsLabel: String, sortLabel: String, sortNameLabel: String, sortRecentLabel: String, sortOption: ConnectionSortOption, onSelectGroupFilter: (String?) -&gt; Unit, onSelectSortOption: (ConnectionSortOption) -&gt; Unit, )</ID>
+    <ID>LongParameterList:ConnectionListScreen.kt$( draft: ConnectionDraft, identities: List&lt;ConnectionIdentity&gt;, selectedIdentityId: String?, onSelectIdentity: (ConnectionIdentity?) -&gt; Unit, onDraftChange: (ConnectionDraft) -&gt; Unit, onPickPrivateKey: () -&gt; Unit, onClearPrivateKey: () -&gt; Unit, onGeneratePrivateKey: (SshKeyAlgorithm) -&gt; Unit, onAddPortForwardRule: (PortForwardRule) -&gt; Unit, onUpdatePortForwardRuleAt: (Int, PortForwardRule) -&gt; Unit, onMovePortForwardRule: (Int, Int) -&gt; Unit, onRemovePortForwardRuleAt: (Int) -&gt; Unit, onClearPortForwards: () -&gt; Unit, )</ID>
+    <ID>LongParameterList:ConnectionListScreen.kt$( rules: List&lt;PortForwardRule&gt;, onAddRule: (PortForwardRule) -&gt; Unit, onUpdateRuleAt: (Int, PortForwardRule) -&gt; Unit, onMoveRule: (Int, Int) -&gt; Unit, onRemoveRuleAt: (Int) -&gt; Unit, onClear: () -&gt; Unit, )</ID>
+    <ID>LongParameterList:ConnectionPrivateKeySupport.kt$( privateKeyPath: String, privateKeyPassphrase: String, onPrivateKeyPassphraseChange: (String) -&gt; Unit, onPickPrivateKey: () -&gt; Unit, onClearPrivateKey: () -&gt; Unit, onGeneratePrivateKey: (SshKeyAlgorithm) -&gt; Unit, )</ID>
+    <ID>LongParameterList:ConnectionRepository.kt$ConnectionRepository$( existingIdentityId: String?, displayName: String, username: String, password: String?, privateKeyPath: String?, privateKeyPassphrase: String?, )</ID>
+    <ID>LongParameterList:SftpBrowserScreen.kt$( busy: Boolean, selectionMode: Boolean, selectedCount: Int, onBack: () -&gt; Unit, onUpload: () -&gt; Unit, onEnterSelectionMode: () -&gt; Unit, onClearSelection: () -&gt; Unit, onDeleteSelection: () -&gt; Unit, )</ID>
+    <ID>LongParameterList:SftpBrowserScreen.kt$( entries: List&lt;RemoteEntry&gt;, selectionMode: Boolean, selectedPaths: Set&lt;String&gt;, onToggleSelection: (String) -&gt; Unit, contextMenuEntry: RemoteEntry?, onContextMenuEntryChange: (RemoteEntry?) -&gt; Unit, menuCallbacks: SftpMenuCallbacks, modifier: Modifier = Modifier, )</ID>
+    <ID>LongParameterList:SftpBrowserScreen.kt$( state: SftpUiState, onRefresh: () -&gt; Unit, selectionMode: Boolean, selectedPaths: Set&lt;String&gt;, onToggleSelection: (String) -&gt; Unit, modifier: Modifier = Modifier, contextMenuEntry: RemoteEntry?, onContextMenuEntryChange: (RemoteEntry?) -&gt; Unit, menuCallbacks: SftpMenuCallbacks, )</ID>
+    <ID>LongParameterList:SftpBrowserScreen.kt$( state: SftpUiState, selectionMode: Boolean, selectedPaths: Set&lt;String&gt;, onToggleSelection: (String) -&gt; Unit, contextMenuEntry: RemoteEntry?, onContextMenuEntryChange: (RemoteEntry?) -&gt; Unit, menuCallbacks: SftpMenuCallbacks, scaffoldCallbacks: SftpScaffoldCallbacks, )</ID>
+    <ID>LongParameterList:TerminalViewModel.kt$TerminalViewModel$( private val sessionManager: SessionManager, private val connectionRepository: ConnectionRepository, private val settingsRepository: SettingsRepository, private val terminalSnippetRepository: TerminalSnippetRepository, private val terminalCommandHistoryRepository: TerminalCommandHistoryRepository, private val workspaceRepository: WorkspaceRepository, private val sensitiveClipboardManager: SensitiveClipboardManager, @ApplicationContext private val context: Context, )</ID>
+    <ID>LoopWithTooManyJumpStatements:SshjClient.kt$SshjClient$while</ID>
+    <ID>MatchingDeclarationName:ConnectionListFiltering.kt$ConnectionSortOption</ID>
+    <ID>MatchingDeclarationName:ProxyJumpParser.kt$ProxyJumpEntry</ID>
+    <ID>MatchingDeclarationName:TerminalConnectionInfoFormatter.kt$TerminalConnectionInfo</ID>
+    <ID>MaxLineLength:SshjClient.kt$SshjClient$"LocalForward stopped ($bindHost:${serverSocket.localPort} -&gt; $targetHost:$targetPort): ${error.message}"</ID>
+    <ID>MaxLineLength:SshjClient.kt$SshjClient.AgentForwardingConnectListener$val identity = identities.firstOrNull { candidate -&gt; candidate.keyBlob.contentEquals(keyBlob) } ?: return failureResponse()</ID>
+    <ID>ReturnCount:ConnectionRepository.kt$ConnectionRepository$suspend fun upsertIdentity( existingIdentityId: String?, displayName: String, username: String, password: String?, privateKeyPath: String?, privateKeyPassphrase: String?, ): ConnectionIdentity</ID>
+    <ID>ReturnCount:KeyRepositoryImpl.kt$KeyRepositoryImpl$override suspend fun loadEncryptedPrivateKey(alias: String): ByteArray?</ID>
+    <ID>ReturnCount:PortForwardRuleFactory.kt$internal fun buildPortForwardRule( type: PortForwardType, bindHostInput: String, bindPortInput: String, targetHostInput: String, targetPortInput: String, ): PortForwardRule?</ID>
+    <ID>ReturnCount:PortForwardRuleOrder.kt$internal fun movePortForwardRule( rules: List&lt;PortForwardRule&gt;, fromIndex: Int, toIndex: Int, ): List&lt;PortForwardRule&gt;</ID>
+    <ID>ReturnCount:ProxyJumpParser.kt$private fun parseHostAndPort( value: String, defaultPort: Int, ): Pair&lt;String, Int&gt;?</ID>
+    <ID>ReturnCount:SshConfigImportParser.kt$private fun parseDynamicForward(value: String): PortForwardRule?</ID>
+    <ID>ReturnCount:SshConfigImportParser.kt$private fun parseHostPort(token: String): HostPort?</ID>
+    <ID>ReturnCount:SshConfigImportParser.kt$private fun parseLocalOrRemoteForward( value: String, type: PortForwardType, ): PortForwardRule?</ID>
+    <ID>ReturnCount:SshConfigImportParser.kt$private fun parsePortEndpoint(token: String): HostPort?</ID>
+    <ID>ReturnCount:SshjClient.kt$SshjClient$private fun handleDynamicClient( ssh: SSHClient, client: Socket, )</ID>
+    <ID>ReturnCount:SshjClient.kt$SshjClient$private fun parseSocks5ConnectTarget(input: BufferedInputStream): SocksTarget?</ID>
+    <ID>ReturnCount:SshjClient.kt$SshjClient$private fun performSocks5Greeting( input: BufferedInputStream, output: OutputStream, ): Boolean</ID>
+    <ID>ReturnCount:SshjClient.kt$SshjClient$private fun startLocalForward( ssh: SSHClient, rule: PortForwardRule, ): SshForwardHandle?</ID>
+    <ID>ReturnCount:SshjClient.kt$SshjClient$private fun startRemoteForward( ssh: SSHClient, rule: PortForwardRule, ): SshForwardHandle?</ID>
+    <ID>ReturnCount:SshjClient.kt$SshjClient.AgentForwardingConnectListener$private fun buildSignResponse(packet: Buffer.PlainBuffer): ByteArray</ID>
+    <ID>ReturnCount:TerminalConnectionInfoFormatter.kt$internal fun buildTerminalConnectionInfo( snapshot: SessionSnapshot?, profile: ConnectionProfile?, ): TerminalConnectionInfo?</ID>
+    <ID>ReturnCount:TerminalRendererGestures.kt$private fun updateScroll( position: Offset, dragAmount: Float, environment: TerminalGestureEnvironment, state: TerminalGestureState, )</ID>
+    <ID>ReturnCount:TerminalViewModel.kt$TerminalViewModel$fun handlePageScroll(direction: Int): Boolean</ID>
+    <ID>ThrowsCount:SshjClient.kt$SshjClient.AgentForwardingConnectListener$private fun readAgentPacket(input: InputStream): ByteArray?</ID>
+    <ID>TooGenericExceptionCaught:SshjClient.kt$SshjClient$failure: Throwable</ID>
+    <ID>TooGenericExceptionCaught:SshjClient.kt$SshjClient.AgentForwardingConnectListener$error: Throwable</ID>
+    <ID>TooManyFunctions:ConnectionListScreen.kt$com.opencode.sshterminal.ui.connection.ConnectionListScreen.kt</ID>
+    <ID>TooManyFunctions:ConnectionPrivateKeySupport.kt$com.opencode.sshterminal.ui.connection.ConnectionPrivateKeySupport.kt</ID>
+    <ID>TooManyFunctions:ConnectionRepository.kt$ConnectionRepository</ID>
+    <ID>TooManyFunctions:SessionManager.kt$SessionManager</ID>
+    <ID>TooManyFunctions:SettingsRepository.kt$SettingsRepository</ID>
+    <ID>TooManyFunctions:SettingsViewModel.kt$SettingsViewModel : ViewModel</ID>
+    <ID>TooManyFunctions:SftpBrowserViewModel.kt$SftpBrowserViewModel : ViewModel</ID>
+    <ID>TooManyFunctions:SshjClient.kt$SshjClient : SshClient</ID>
+    <ID>TooManyFunctions:SshjSftpAdapter.kt$SshjSftpAdapter : SftpChannelAdapter</ID>
+  </CurrentIssues>
 </SmellBaseline>

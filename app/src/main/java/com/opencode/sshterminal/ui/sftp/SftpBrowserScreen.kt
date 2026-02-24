@@ -26,6 +26,9 @@ import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.NavigateNext
+import androidx.compose.material.icons.filled.CheckBox
+import androidx.compose.material.icons.filled.CheckBoxOutlineBlank
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.CreateNewFolder
@@ -54,6 +57,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -83,11 +87,22 @@ fun SftpBrowserScreen(
     var showMkdirDialog by remember { mutableStateOf(false) }
     var renameTarget by remember { mutableStateOf<RemoteEntry?>(null) }
     var deleteTarget by remember { mutableStateOf<RemoteEntry?>(null) }
+    var showBulkDeleteDialog by remember { mutableStateOf(false) }
     var contextMenuEntry by remember { mutableStateOf<RemoteEntry?>(null) }
+    var selectionMode by remember { mutableStateOf(false) }
+    var selectedPaths by remember { mutableStateOf(setOf<String>()) }
+    LaunchedEffect(state.entries) {
+        val currentPaths = state.entries.map { entry -> entry.path }.toSet()
+        selectedPaths = selectedPaths.filter { path -> path in currentPaths }.toSet()
+    }
     val launchers = rememberSftpLaunchers(viewModel::downloadToStream, viewModel::uploadFromUri)
     val menuCallbacks =
         SftpMenuCallbacks(
-            onNavigate = viewModel::navigateTo,
+            onNavigate = { path ->
+                selectionMode = false
+                selectedPaths = emptySet()
+                viewModel.navigateTo(path)
+            },
             onDownload = { entry ->
                 contextMenuEntry = null
                 launchers.launchDownload(entry.path, entry.name)
@@ -101,12 +116,20 @@ fun SftpBrowserScreen(
                 deleteTarget = entry
             },
         )
-    val dialogState = SftpDialogState(showMkdirDialog, renameTarget, deleteTarget)
+    val dialogState =
+        SftpDialogState(
+            showMkdirDialog = showMkdirDialog,
+            renameTarget = renameTarget,
+            deleteTarget = deleteTarget,
+            showBulkDeleteDialog = showBulkDeleteDialog,
+            selectedCount = selectedPaths.size,
+        )
     val dialogCallbacks =
         SftpDialogCallbacks(
             onDismissMkdir = { showMkdirDialog = false },
             onDismissRename = { renameTarget = null },
             onDismissDelete = { deleteTarget = null },
+            onDismissBulkDelete = { showBulkDeleteDialog = false },
             onMkdir = { name ->
                 showMkdirDialog = false
                 if (name.isNotBlank()) viewModel.mkdir(name)
@@ -119,9 +142,26 @@ fun SftpBrowserScreen(
                 deleteTarget = null
                 viewModel.rm(path)
             },
+            onDeleteSelected = {
+                showBulkDeleteDialog = false
+                val targets = selectedPaths.toList()
+                selectionMode = false
+                selectedPaths = emptySet()
+                viewModel.rmMany(targets)
+            },
         )
     SftpBrowserScaffold(
         state = state,
+        selectionMode = selectionMode,
+        selectedPaths = selectedPaths,
+        onToggleSelection = { path ->
+            selectedPaths =
+                if (path in selectedPaths) {
+                    selectedPaths - path
+                } else {
+                    selectedPaths + path
+                }
+        },
         contextMenuEntry = contextMenuEntry,
         onContextMenuEntryChange = { contextMenuEntry = it },
         menuCallbacks = menuCallbacks,
@@ -131,6 +171,21 @@ fun SftpBrowserScreen(
                 onUpload = launchers.launchUploadPicker,
                 onShowMkdirDialog = { showMkdirDialog = true },
                 onRefresh = viewModel::list,
+                selectionMode = selectionMode,
+                selectedCount = selectedPaths.size,
+                onEnterSelectionMode = {
+                    contextMenuEntry = null
+                    selectionMode = true
+                },
+                onClearSelection = {
+                    selectionMode = false
+                    selectedPaths = emptySet()
+                },
+                onDeleteSelection = {
+                    if (selectedPaths.isNotEmpty()) {
+                        showBulkDeleteDialog = true
+                    }
+                },
             ),
     )
     SftpDialogs(state = dialogState, callbacks = dialogCallbacks)
@@ -141,11 +196,19 @@ private data class SftpScaffoldCallbacks(
     val onUpload: () -> Unit,
     val onShowMkdirDialog: () -> Unit,
     val onRefresh: () -> Unit,
+    val selectionMode: Boolean,
+    val selectedCount: Int,
+    val onEnterSelectionMode: () -> Unit,
+    val onClearSelection: () -> Unit,
+    val onDeleteSelection: () -> Unit,
 )
 
 @Composable
 private fun SftpBrowserScaffold(
     state: SftpUiState,
+    selectionMode: Boolean,
+    selectedPaths: Set<String>,
+    onToggleSelection: (String) -> Unit,
     contextMenuEntry: RemoteEntry?,
     onContextMenuEntryChange: (RemoteEntry?) -> Unit,
     menuCallbacks: SftpMenuCallbacks,
@@ -155,16 +218,23 @@ private fun SftpBrowserScaffold(
         topBar = {
             SftpTopBar(
                 busy = state.busy,
+                selectionMode = scaffoldCallbacks.selectionMode,
+                selectedCount = scaffoldCallbacks.selectedCount,
                 onBack = scaffoldCallbacks.onBack,
                 onUpload = scaffoldCallbacks.onUpload,
+                onEnterSelectionMode = scaffoldCallbacks.onEnterSelectionMode,
+                onClearSelection = scaffoldCallbacks.onClearSelection,
+                onDeleteSelection = scaffoldCallbacks.onDeleteSelection,
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = scaffoldCallbacks.onShowMkdirDialog) {
-                Icon(
-                    Icons.Default.CreateNewFolder,
-                    contentDescription = stringResource(R.string.sftp_new_folder),
-                )
+            if (!scaffoldCallbacks.selectionMode) {
+                FloatingActionButton(onClick = scaffoldCallbacks.onShowMkdirDialog) {
+                    Icon(
+                        Icons.Default.CreateNewFolder,
+                        contentDescription = stringResource(R.string.sftp_new_folder),
+                    )
+                }
             }
         },
     ) { padding ->
@@ -178,6 +248,9 @@ private fun SftpBrowserScaffold(
             onContextMenuEntryChange = onContextMenuEntryChange,
             menuCallbacks = menuCallbacks,
             onRefresh = scaffoldCallbacks.onRefresh,
+            selectionMode = selectionMode,
+            selectedPaths = selectedPaths,
+            onToggleSelection = onToggleSelection,
         )
     }
 }
@@ -238,26 +311,44 @@ private data class SftpDialogState(
     val showMkdirDialog: Boolean,
     val renameTarget: RemoteEntry?,
     val deleteTarget: RemoteEntry?,
+    val showBulkDeleteDialog: Boolean,
+    val selectedCount: Int,
 )
 
 private data class SftpDialogCallbacks(
     val onDismissMkdir: () -> Unit,
     val onDismissRename: () -> Unit,
     val onDismissDelete: () -> Unit,
+    val onDismissBulkDelete: () -> Unit,
     val onMkdir: (name: String) -> Unit,
     val onRename: (oldPath: String, newName: String) -> Unit,
     val onDelete: (remotePath: String) -> Unit,
+    val onDeleteSelected: () -> Unit,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SftpTopBar(
     busy: Boolean,
+    selectionMode: Boolean,
+    selectedCount: Int,
     onBack: () -> Unit,
     onUpload: () -> Unit,
+    onEnterSelectionMode: () -> Unit,
+    onClearSelection: () -> Unit,
+    onDeleteSelection: () -> Unit,
 ) {
     TopAppBar(
-        title = { Text(stringResource(R.string.sftp_browser_title)) },
+        title = {
+            Text(
+                text =
+                    if (selectionMode) {
+                        stringResource(R.string.sftp_selected_count, selectedCount)
+                    } else {
+                        stringResource(R.string.sftp_browser_title)
+                    },
+            )
+        },
         navigationIcon = {
             IconButton(onClick = onBack) {
                 Icon(
@@ -267,20 +358,43 @@ private fun SftpTopBar(
             }
         },
         actions = {
-            IconButton(onClick = onUpload) {
-                Icon(
-                    Icons.Default.CloudUpload,
-                    contentDescription = stringResource(R.string.sftp_upload),
-                )
-            }
-            if (busy) {
-                CircularProgressIndicator(
-                    modifier =
-                        Modifier
-                            .size(24.dp)
-                            .padding(end = 4.dp),
-                    strokeWidth = 2.dp,
-                )
+            if (selectionMode) {
+                if (selectedCount > 0) {
+                    IconButton(onClick = onDeleteSelection) {
+                        Icon(
+                            Icons.Default.Delete,
+                            contentDescription = stringResource(R.string.sftp_delete_selected),
+                        )
+                    }
+                }
+                IconButton(onClick = onClearSelection) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = stringResource(R.string.common_cancel),
+                    )
+                }
+            } else {
+                IconButton(onClick = onEnterSelectionMode) {
+                    Icon(
+                        Icons.Default.CheckBoxOutlineBlank,
+                        contentDescription = stringResource(R.string.sftp_select_multiple),
+                    )
+                }
+                IconButton(onClick = onUpload) {
+                    Icon(
+                        Icons.Default.CloudUpload,
+                        contentDescription = stringResource(R.string.sftp_upload),
+                    )
+                }
+                if (busy) {
+                    CircularProgressIndicator(
+                        modifier =
+                            Modifier
+                                .size(24.dp)
+                                .padding(end = 4.dp),
+                        strokeWidth = 2.dp,
+                    )
+                }
             }
         },
     )
@@ -291,6 +405,9 @@ private fun SftpTopBar(
 private fun SftpBrowserBody(
     state: SftpUiState,
     onRefresh: () -> Unit,
+    selectionMode: Boolean,
+    selectedPaths: Set<String>,
+    onToggleSelection: (String) -> Unit,
     modifier: Modifier = Modifier,
     contextMenuEntry: RemoteEntry?,
     onContextMenuEntryChange: (RemoteEntry?) -> Unit,
@@ -337,6 +454,9 @@ private fun SftpBrowserBody(
 
             SftpEntryList(
                 entries = state.entries,
+                selectionMode = selectionMode,
+                selectedPaths = selectedPaths,
+                onToggleSelection = onToggleSelection,
                 contextMenuEntry = contextMenuEntry,
                 onContextMenuEntryChange = onContextMenuEntryChange,
                 menuCallbacks = menuCallbacks,
@@ -358,6 +478,9 @@ private fun SftpBrowserBody(
 @Composable
 private fun SftpEntryList(
     entries: List<RemoteEntry>,
+    selectionMode: Boolean,
+    selectedPaths: Set<String>,
+    onToggleSelection: (String) -> Unit,
     contextMenuEntry: RemoteEntry?,
     onContextMenuEntryChange: (RemoteEntry?) -> Unit,
     menuCallbacks: SftpMenuCallbacks,
@@ -368,52 +491,69 @@ private fun SftpEntryList(
         verticalArrangement = Arrangement.spacedBy(1.dp),
     ) {
         items(entries, key = { it.path }) { entry ->
+            val selected = entry.path in selectedPaths
             Box {
                 FileEntryRow(
                     entry = entry,
-                    onClick = { if (entry.isDirectory) menuCallbacks.onNavigate(entry.path) },
-                    onLongClick = { onContextMenuEntryChange(entry) },
+                    selectionMode = selectionMode,
+                    selected = selected,
+                    onClick = {
+                        if (selectionMode) {
+                            onToggleSelection(entry.path)
+                        } else if (entry.isDirectory) {
+                            menuCallbacks.onNavigate(entry.path)
+                        }
+                    },
+                    onLongClick = {
+                        if (selectionMode) {
+                            onToggleSelection(entry.path)
+                        } else {
+                            onContextMenuEntryChange(entry)
+                        }
+                    },
                 )
-                DropdownMenu(
-                    expanded = contextMenuEntry == entry,
-                    onDismissRequest = { onContextMenuEntryChange(null) },
-                ) {
-                    if (entry.isDirectory) {
+                if (!selectionMode) {
+                    DropdownMenu(
+                        expanded = contextMenuEntry == entry,
+                        onDismissRequest = { onContextMenuEntryChange(null) },
+                    ) {
+                        if (entry.isDirectory) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.sftp_open)) },
+                                leadingIcon = {
+                                    Icon(Icons.Default.FolderOpen, contentDescription = null)
+                                },
+                                onClick = {
+                                    onContextMenuEntryChange(null)
+                                    menuCallbacks.onNavigate(entry.path)
+                                },
+                            )
+                        } else {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.sftp_download)) },
+                                leadingIcon = {
+                                    Icon(Icons.Default.CloudDownload, contentDescription = null)
+                                },
+                                onClick = { menuCallbacks.onDownload(entry) },
+                            )
+                        }
                         DropdownMenuItem(
-                            text = { Text(stringResource(R.string.sftp_open)) },
-                            leadingIcon = {
-                                Icon(Icons.Default.FolderOpen, contentDescription = null)
-                            },
-                            onClick = {
-                                onContextMenuEntryChange(null)
-                                menuCallbacks.onNavigate(entry.path)
-                            },
+                            text = { Text(stringResource(R.string.sftp_rename)) },
+                            leadingIcon = { Icon(Icons.Default.DriveFileRenameOutline, contentDescription = null) },
+                            onClick = { menuCallbacks.onRename(entry) },
                         )
-                    } else {
                         DropdownMenuItem(
-                            text = { Text(stringResource(R.string.sftp_download)) },
+                            text = { Text(stringResource(R.string.sftp_delete)) },
                             leadingIcon = {
-                                Icon(Icons.Default.CloudDownload, contentDescription = null)
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                )
                             },
-                            onClick = { menuCallbacks.onDownload(entry) },
+                            onClick = { menuCallbacks.onDelete(entry) },
                         )
                     }
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.sftp_rename)) },
-                        leadingIcon = { Icon(Icons.Default.DriveFileRenameOutline, contentDescription = null) },
-                        onClick = { menuCallbacks.onRename(entry) },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.sftp_delete)) },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Default.Delete,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error,
-                            )
-                        },
-                        onClick = { menuCallbacks.onDelete(entry) },
-                    )
                 }
             }
         }
@@ -473,6 +613,27 @@ private fun SftpDialogs(
             },
             dismissButton = {
                 TextButton(onClick = callbacks.onDismissDelete) {
+                    Text(stringResource(R.string.common_cancel))
+                }
+            },
+        )
+    }
+
+    if (state.showBulkDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = callbacks.onDismissBulkDelete,
+            title = { Text(stringResource(R.string.sftp_delete_selected)) },
+            text = { Text(stringResource(R.string.sftp_delete_selected_message, state.selectedCount)) },
+            confirmButton = {
+                TextButton(onClick = callbacks.onDeleteSelected) {
+                    Text(
+                        stringResource(R.string.common_delete),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = callbacks.onDismissBulkDelete) {
                     Text(stringResource(R.string.common_cancel))
                 }
             },
@@ -551,6 +712,8 @@ private fun Breadcrumbs(
 @Composable
 private fun FileEntryRow(
     entry: RemoteEntry,
+    selectionMode: Boolean,
+    selected: Boolean,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
 ) {
@@ -604,7 +767,19 @@ private fun FileEntryRow(
             }
         }
 
-        if (!entry.isDirectory) {
+        if (selectionMode) {
+            Icon(
+                imageVector = if (selected) Icons.Default.CheckBox else Icons.Default.CheckBoxOutlineBlank,
+                contentDescription = null,
+                tint =
+                    if (selected) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    },
+                modifier = Modifier.size(20.dp),
+            )
+        } else if (!entry.isDirectory) {
             Icon(
                 Icons.Default.CloudDownload,
                 contentDescription = stringResource(R.string.sftp_download_icon_description),

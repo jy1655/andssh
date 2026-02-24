@@ -247,6 +247,49 @@ class SftpBrowserViewModel
             }
         }
 
+        fun rmMany(remotePaths: List<String>) {
+            if (remotePaths.isEmpty()) return
+            viewModelScope.launch {
+                _uiState.value = _uiState.value.copy(busy = true)
+                var failureCount = 0
+                remotePaths.forEach { remotePath ->
+                    runCatching { sftpAdapter.rm(remotePath) }
+                        .onFailure { failureCount += 1 }
+                }
+                val currentPath = _uiState.value.remotePath
+                runCatching {
+                    val entries =
+                        sftpAdapter.list(currentPath)
+                            .sortedWith(
+                                compareByDescending<RemoteEntry> { it.isDirectory }
+                                    .thenBy { it.name.lowercase() },
+                            )
+                    val status =
+                        if (failureCount == 0) {
+                            context.getString(R.string.sftp_status_bulk_delete_complete, remotePaths.size)
+                        } else {
+                            context.getString(
+                                R.string.sftp_status_bulk_delete_partial,
+                                remotePaths.size - failureCount,
+                                failureCount,
+                            )
+                        }
+                    _uiState.value =
+                        _uiState.value.copy(
+                            entries = entries,
+                            status = status,
+                            busy = false,
+                        )
+                }.onFailure { t ->
+                    _uiState.value =
+                        _uiState.value.copy(
+                            status = context.getString(R.string.sftp_status_delete_failed, t.message),
+                            busy = false,
+                        )
+                }
+            }
+        }
+
         fun rename(
             oldPath: String,
             newName: String,

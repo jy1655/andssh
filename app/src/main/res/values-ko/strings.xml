@@ -138,11 +138,15 @@
     <string name="sftp_browser_title">SFTP 탐색기</string>
     <string name="sftp_back">뒤로</string>
     <string name="sftp_upload">업로드</string>
+    <string name="sftp_select_multiple">다중 선택</string>
+    <string name="sftp_selected_count">%1$d개 선택됨</string>
     <string name="sftp_new_folder">새 폴더</string>
     <string name="sftp_open">열기</string>
     <string name="sftp_download">다운로드</string>
     <string name="sftp_rename">이름 변경</string>
     <string name="sftp_delete">삭제</string>
+    <string name="sftp_delete_selected">선택 항목 삭제</string>
+    <string name="sftp_delete_selected_message">선택한 %1$d개 항목을 삭제할까요?</string>
     <string name="sftp_folder_name_placeholder">폴더 이름</string>
     <string name="sftp_create">생성</string>
     <string name="sftp_new_name_placeholder">새 이름</string>
@@ -164,6 +168,8 @@
     <string name="sftp_status_invalid_directory_name">잘못된 디렉터리 이름</string>
     <string name="sftp_status_mkdir_failed">디렉터리 생성 실패: %1$s</string>
     <string name="sftp_status_delete_failed">삭제 실패: %1$s</string>
+    <string name="sftp_status_bulk_delete_complete">%1$d개 항목을 삭제했습니다</string>
+    <string name="sftp_status_bulk_delete_partial">%1$d개 삭제, %2$d개 실패</string>
     <string name="sftp_status_invalid_new_name">잘못된 새 이름</string>
     <string name="sftp_status_rename_failed">이름 변경 실패: %1$s</string>
 

@@ -138,11 +138,15 @@
     <string name="sftp_browser_title">SFTP Browser</string>
     <string name="sftp_back">Back</string>
     <string name="sftp_upload">Upload</string>
+    <string name="sftp_select_multiple">Select multiple</string>
+    <string name="sftp_selected_count">%1$d selected</string>
     <string name="sftp_new_folder">New Folder</string>
     <string name="sftp_open">Open</string>
     <string name="sftp_download">Download</string>
     <string name="sftp_rename">Rename</string>
     <string name="sftp_delete">Delete</string>
+    <string name="sftp_delete_selected">Delete Selected</string>
+    <string name="sftp_delete_selected_message">Delete %1$d selected item(s)?</string>
     <string name="sftp_folder_name_placeholder">Folder name</string>
     <string name="sftp_create">Create</string>
     <string name="sftp_new_name_placeholder">New name</string>
@@ -164,6 +168,8 @@
     <string name="sftp_status_invalid_directory_name">Invalid directory name</string>
     <string name="sftp_status_mkdir_failed">mkdir failed: %1$s</string>
     <string name="sftp_status_delete_failed">Delete failed: %1$s</string>
+    <string name="sftp_status_bulk_delete_complete">Deleted %1$d item(s)</string>
+    <string name="sftp_status_bulk_delete_partial">Deleted %1$d item(s), failed %2$d</string>
     <string name="sftp_status_invalid_new_name">Invalid new name</string>
     <string name="sftp_status_rename_failed">Rename failed: %1$s</string>
 

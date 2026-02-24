@@ -24,6 +24,7 @@ import com.opencode.sshterminal.terminal.applyColorScheme
 import com.termux.terminal.TerminalBuffer
 import com.termux.terminal.TerminalEmulator
 import com.termux.terminal.WcWidth
+import kotlin.math.roundToInt
 
 internal const val DEFAULT_FONT_SIZE_SP = SettingsRepository.DEFAULT_TERMINAL_FONT_SIZE_SP
 private const val MIN_FONT_SIZE_SP = SettingsRepository.MIN_TERMINAL_FONT_SIZE_SP
@@ -57,6 +58,7 @@ data class TerminalRendererCallbacks(
     val onTap: (() -> Unit)? = null,
     val onResize: ((cols: Int, rows: Int) -> Unit)? = null,
     val onCopyText: ((String) -> Unit)? = null,
+    val onFontSizeChange: ((Int) -> Unit)? = null,
 )
 
 @Suppress("LongParameterList")
@@ -93,6 +95,10 @@ fun TerminalRenderer(
             bridge = bridge,
             charWidthPx = charSize.width,
             charHeightPx = charSize.height,
+            fontSizeSp = resolvedFontSizeSp,
+            minFontSizeSp = MIN_FONT_SIZE_SP,
+            maxFontSizeSp = MAX_FONT_SIZE_SP,
+            onFontSizeChange = callbacks.onFontSizeChange,
             onTap = callbacks.onTap,
         )
     TerminalRendererEffects(
@@ -255,6 +261,19 @@ internal data class ScrollUpdate(
     val newScrollOffset: Int,
     val newPixelAccumulator: Float,
 )
+
+internal fun computePinchFontSize(
+    initialFontSizeSp: Int,
+    initialDistancePx: Float,
+    currentDistancePx: Float,
+    minFontSizeSp: Int,
+    maxFontSizeSp: Int,
+): Int {
+    val boundedInitial = initialFontSizeSp.coerceIn(minFontSizeSp, maxFontSizeSp)
+    if (initialDistancePx <= 0f || currentDistancePx <= 0f) return boundedInitial
+    val scaled = (boundedInitial * (currentDistancePx / initialDistancePx)).roundToInt()
+    return scaled.coerceIn(minFontSizeSp, maxFontSizeSp)
+}
 
 internal fun computeScrollUpdate(
     dragAmount: Float,

@@ -338,6 +338,7 @@ private fun TerminalMainColumn(
                     onTap = { imeFocusSignal++ },
                     onResize = { cols, rows -> viewModel.resize(cols, rows) },
                     onCopyText = callbacks.onCopyText,
+                    onFontSizeChange = viewModel::setTerminalFontSizeSp,
                 ),
         )
 

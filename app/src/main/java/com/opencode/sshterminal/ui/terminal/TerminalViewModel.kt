@@ -318,6 +318,18 @@ class TerminalViewModel
             return false
         }
 
+        fun setTerminalFontSizeSp(sizeSp: Int) {
+            val clamped =
+                sizeSp.coerceIn(
+                    SettingsRepository.MIN_TERMINAL_FONT_SIZE_SP,
+                    SettingsRepository.MAX_TERMINAL_FONT_SIZE_SP,
+                )
+            if (clamped == terminalFontSizeSp.value) return
+            viewModelScope.launch {
+                settingsRepository.setTerminalFontSizeSp(clamped)
+            }
+        }
+
         fun dismissHostKeyAlert() = sessionManager.dismissHostKeyAlert()
 
         fun trustHostKeyOnce() = sessionManager.trustHostKeyOnce()

@@ -6,8 +6,8 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.AwaitPointerEventScope
+import androidx.compose.ui.input.pointer.PointerEvent
 import androidx.compose.ui.input.pointer.PointerId
-import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.changedToUpIgnoreConsumed
 import androidx.compose.ui.input.pointer.pointerInput
 import com.opencode.sshterminal.terminal.TermuxTerminalBridge
@@ -17,6 +17,10 @@ internal data class TerminalGestureEnvironment(
     val bridge: TermuxTerminalBridge,
     val charWidthPx: Float,
     val charHeightPx: Float,
+    val fontSizeSp: Int,
+    val minFontSizeSp: Int,
+    val maxFontSizeSp: Int,
+    val onFontSizeChange: ((Int) -> Unit)? = null,
     val onTap: (() -> Unit)? = null,
 )
 
@@ -30,7 +34,14 @@ internal fun Modifier.terminalGestureInput(
     environment: TerminalGestureEnvironment,
     state: TerminalGestureState,
 ): Modifier =
-    pointerInput(environment.bridge, environment.charWidthPx, environment.charHeightPx) {
+    pointerInput(
+        environment.bridge,
+        environment.charWidthPx,
+        environment.charHeightPx,
+        environment.fontSizeSp,
+        environment.minFontSizeSp,
+        environment.maxFontSizeSp,
+    ) {
         awaitEachGesture {
             processGesture(environment, state)
         }
@@ -51,37 +62,77 @@ private suspend fun AwaitPointerEventScope.processGesture(
         )
 
     while (!session.ended) {
-        val change = nextPrimaryChange(session.pointerId)
-        session.ended = handleGestureChange(change, session, environment, state)
+        val event = awaitPointerEvent()
+        session.ended = handleGestureEvent(event, session, environment, state)
     }
 
     finishGesture(session, state, environment.onTap)
 }
 
-private suspend fun AwaitPointerEventScope.nextPrimaryChange(pointerId: PointerId) =
-    awaitPointerEvent().changes.let { changes ->
-        changes.firstOrNull { it.id == pointerId } ?: changes.firstOrNull()
-    }
-
-private fun handleGestureChange(
-    change: PointerInputChange?,
+@Suppress("LongMethod", "CyclomaticComplexMethod", "NestedBlockDepth")
+private fun handleGestureEvent(
+    event: PointerEvent,
     session: GestureSession,
     environment: TerminalGestureEnvironment,
     state: TerminalGestureState,
 ): Boolean {
-    var ended = change == null
-    if (!ended) {
-        val currentChange = requireNotNull(change)
-        session.pointerId = currentChange.id
-        ended = currentChange.changedToUpIgnoreConsumed()
-        if (!ended) {
-            maybeStartSelection(currentChange.uptimeMillis, session, environment, state)
-            maybeStartScroll(currentChange.position, session)
-            applyGestureMode(currentChange.position, session, environment, state)
-            if (session.selectionMode || session.scrollMode) {
-                currentChange.consume()
+    var ended = false
+    if (session.pinchMode) {
+        val activePointers = event.changes.filter { it.pressed }
+        if (activePointers.size >= 2) {
+            val currentDistance = (activePointers[0].position - activePointers[1].position).getDistance()
+            val newFontSize =
+                computePinchFontSize(
+                    initialFontSizeSp = session.pinchStartFontSizeSp,
+                    initialDistancePx = session.pinchStartDistancePx,
+                    currentDistancePx = currentDistance,
+                    minFontSizeSp = environment.minFontSizeSp,
+                    maxFontSizeSp = environment.maxFontSizeSp,
+                )
+            if (newFontSize != session.lastPinchFontSizeSp) {
+                session.lastPinchFontSizeSp = newFontSize
+                environment.onFontSizeChange?.invoke(newFontSize)
             }
-            session.lastPosition = currentChange.position
+        }
+        event.changes.forEach { it.consume() }
+        ended = event.changes.none { it.pressed }
+    } else {
+        val activePointers = event.changes.filter { it.pressed }
+        val canStartPinch =
+            environment.onFontSizeChange != null &&
+                !session.selectionMode &&
+                !session.scrollMode &&
+                activePointers.size >= 2
+        if (canStartPinch) {
+            val distance = (activePointers[0].position - activePointers[1].position).getDistance()
+            if (distance > 0f) {
+                session.pinchMode = true
+                session.scrollMode = true
+                session.pinchStartDistancePx = distance
+                session.pinchStartFontSizeSp = environment.fontSizeSp
+                session.lastPinchFontSizeSp = environment.fontSizeSp
+                state.selectionState.value = null
+                state.scrollPixelAccumulatorState.value = 0f
+                event.changes.forEach { it.consume() }
+            }
+        } else {
+            val currentChange = event.changes.firstOrNull { it.id == session.pointerId } ?: event.changes.firstOrNull()
+            if (currentChange == null) {
+                ended = true
+            } else {
+                session.pointerId = currentChange.id
+                if (currentChange.changedToUpIgnoreConsumed()) {
+                    ended = event.changes.none { it.pressed }
+                } else {
+                    maybeStartSelection(currentChange.uptimeMillis, session, environment, state)
+                    maybeStartScroll(currentChange.position, session)
+                    applyGestureMode(currentChange.position, session, environment, state)
+                    if (session.selectionMode || session.scrollMode) {
+                        currentChange.consume()
+                    }
+                    session.lastPosition = currentChange.position
+                }
+            }
         }
     }
     return ended
@@ -258,5 +309,9 @@ private data class GestureSession(
     var lastPosition: Offset,
     var selectionMode: Boolean = false,
     var scrollMode: Boolean = false,
+    var pinchMode: Boolean = false,
+    var pinchStartDistancePx: Float = 0f,
+    var pinchStartFontSizeSp: Int = 0,
+    var lastPinchFontSizeSp: Int = 0,
     var ended: Boolean = false,
 )

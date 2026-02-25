@@ -323,6 +323,7 @@
 
 > Phase 3-1 현재 검증 상태: `assembleDebug`, `testDebugUnitTest`, `ktlintCheck`, `detekt`, `./scripts/device-smoke.sh --skip-tests` 통과.
 > 남은 리스크: OpenSSH 서버별 `sk-ecdsa` 실기기 상호운용성 회귀 테스트 필요.
+> 실기기 검증 가이드/서버 스크립트: `docs/security-key-e2e.md`, `scripts/security-key-e2e.sh`
 
 ---
 

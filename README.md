@@ -94,6 +94,15 @@ export PATH="$JAVA_HOME/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH"
 ./scripts/device-smoke.sh --skip-tests
 ```
 
+- Security-key(OpenSSH `sk-ecdsa`) 실기기 E2E 서버 준비/로그 확인:
+
+```bash
+./scripts/security-key-e2e.sh start
+./scripts/security-key-e2e.sh status
+./scripts/security-key-e2e.sh show-log
+./scripts/security-key-e2e.sh stop
+```
+
 - If multiple devices are connected, select one with `ANDROID_SERIAL`:
 
 ```bash

@@ -84,7 +84,7 @@
     <string name="connection_certificate_import_failed">인증서 파일을 불러오지 못했습니다.</string>
     <string name="connection_private_key_generate_failed">개인 키 파일 생성에 실패했습니다.</string>
     <string name="connection_label_security_key_application">보안키 애플리케이션</string>
-    <string name="connection_security_key_application_placeholder">https://andssh.local</string>
+    <string name="connection_security_key_application_placeholder">android:apk-key-hash:&lt;앱서명해시&gt;</string>
     <string name="connection_enroll_security_key">보안키 등록</string>
     <string name="connection_clear_security_key">보안키 해제</string>
     <string name="connection_copy_security_key">authorized_key 복사</string>
@@ -93,6 +93,7 @@
     <string name="connection_security_key_enroll_success">하드웨어 보안키 등록 완료</string>
     <string name="connection_security_key_enroll_failed">하드웨어 보안키 등록이 실패했거나 취소되었습니다</string>
     <string name="connection_security_key_enroll_failed_reason">하드웨어 보안키 등록 실패: %1$s</string>
+    <string name="connection_security_key_enroll_disabled_release">현재 릴리스에서는 보안키 등록을 비활성화했습니다 (docs/security-key-enroll-disablement-2026-02-25.md 참고).</string>
     <string name="connection_security_key_copy_success">authorized_key를 복사했습니다</string>
     <string name="connection_security_key_copy_failed">복사할 authorized_key가 없습니다</string>
     <string name="connection_import_ssh_config">가져오기</string>

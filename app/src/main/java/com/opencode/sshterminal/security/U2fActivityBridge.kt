@@ -3,6 +3,7 @@ package com.opencode.sshterminal.security
 import android.app.Activity
 import android.content.Intent
 import android.content.IntentSender
+import com.google.android.gms.fido.fido2.Fido2PendingIntent
 import com.google.android.gms.fido.u2f.U2fPendingIntent
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -33,6 +34,31 @@ class U2fActivityBridge
             timeoutMillis: Long = DEFAULT_U2F_TIMEOUT_MS,
         ): ActivityResultPayload {
             val activity = activityRef?.get() ?: error("No active activity for U2F prompt")
+            val requestCode = nextRequestCode()
+            val deferred = CompletableDeferred<ActivityResultPayload>()
+            pendingResults[requestCode] = deferred
+
+            try {
+                withContext(Dispatchers.Main) {
+                    pendingIntent.launchPendingIntent(activity, requestCode)
+                }
+            } catch (error: IntentSender.SendIntentException) {
+                pendingResults.remove(requestCode)
+                throw error
+            }
+
+            return try {
+                withTimeout(timeoutMillis) { deferred.await() }
+            } finally {
+                pendingResults.remove(requestCode)
+            }
+        }
+
+        suspend fun launchPendingIntent(
+            pendingIntent: Fido2PendingIntent,
+            timeoutMillis: Long = DEFAULT_U2F_TIMEOUT_MS,
+        ): ActivityResultPayload {
+            val activity = activityRef?.get() ?: error("No active activity for FIDO2 prompt")
             val requestCode = nextRequestCode()
             val deferred = CompletableDeferred<ActivityResultPayload>()
             pendingResults[requestCode] = deferred

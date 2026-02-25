@@ -55,11 +55,13 @@ class LockViewModel
 
         val canUseBiometric: StateFlow<Boolean> =
             combine(isBiometricEnabled, isLocked, isFirstSetup) { enabled, locked, firstSetup ->
-                enabled &&
-                    biometricAvailable &&
-                    biometricBoundKeyManager.hasKey() &&
-                    locked &&
-                    !firstSetup
+                canOfferBiometricUnlock(
+                    biometricEnabled = enabled,
+                    biometricAvailable = biometricAvailable,
+                    hasBiometricKey = biometricBoundKeyManager.hasKey(),
+                    isLocked = locked,
+                    isFirstSetup = firstSetup,
+                )
             }.stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(STATE_FLOW_TIMEOUT_MS),
@@ -165,10 +167,7 @@ class LockViewModel
                             errorCode: Int,
                             errString: CharSequence,
                         ) {
-                            if (
-                                errorCode != BiometricPrompt.ERROR_NEGATIVE_BUTTON &&
-                                errorCode != BiometricPrompt.ERROR_USER_CANCELED
-                            ) {
+                            if (shouldDisplayBiometricError(errorCode)) {
                                 _error.value = errString.toString()
                             }
                         }
@@ -201,3 +200,22 @@ class LockViewModel
             private const val STATE_FLOW_TIMEOUT_MS = 5_000L
         }
     }
+
+internal fun canOfferBiometricUnlock(
+    biometricEnabled: Boolean,
+    biometricAvailable: Boolean,
+    hasBiometricKey: Boolean,
+    isLocked: Boolean,
+    isFirstSetup: Boolean,
+): Boolean {
+    return biometricEnabled &&
+        biometricAvailable &&
+        hasBiometricKey &&
+        isLocked &&
+        !isFirstSetup
+}
+
+internal fun shouldDisplayBiometricError(errorCode: Int): Boolean {
+    return errorCode != BiometricPrompt.ERROR_NEGATIVE_BUTTON &&
+        errorCode != BiometricPrompt.ERROR_USER_CANCELED
+}

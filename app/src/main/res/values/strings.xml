@@ -84,7 +84,7 @@
     <string name="connection_certificate_import_failed">Failed to import certificate file.</string>
     <string name="connection_private_key_generate_failed">Failed to generate private key file.</string>
     <string name="connection_label_security_key_application">Security key application</string>
-    <string name="connection_security_key_application_placeholder">https://andssh.local</string>
+    <string name="connection_security_key_application_placeholder">android:apk-key-hash:&lt;app-signing-cert&gt;</string>
     <string name="connection_enroll_security_key">Enroll Security Key</string>
     <string name="connection_clear_security_key">Clear Security Key</string>
     <string name="connection_copy_security_key">Copy authorized_key</string>
@@ -93,6 +93,7 @@
     <string name="connection_security_key_enroll_success">Hardware security key enrolled</string>
     <string name="connection_security_key_enroll_failed">Hardware security key enrollment failed or cancelled</string>
     <string name="connection_security_key_enroll_failed_reason">Hardware security key enrollment failed: %1$s</string>
+    <string name="connection_security_key_enroll_disabled_release">Security key enrollment is disabled in this release (see docs/security-key-enroll-disablement-2026-02-25.md).</string>
     <string name="connection_security_key_copy_success">authorized_key copied</string>
     <string name="connection_security_key_copy_failed">No authorized_key to copy</string>
     <string name="connection_import_ssh_config">Import</string>

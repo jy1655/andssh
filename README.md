@@ -1,214 +1,214 @@
-# SSH Terminal (MVP Scaffold)
+<p align="center">
+  <img src="docs/assets/branding/AndSSH.png" alt="AndSSH" width="128" />
+</p>
 
-Android native SSH terminal app scaffold focused on TTY-based remote CLI workflows.
+<h1 align="center">AndSSH</h1>
 
-## What is included
+<p align="center">
+  A free, open-source Android SSH terminal &mdash; no subscriptions, no cloud, fully local.
+</p>
 
-- Minimal Android Compose app module
-- Foreground service skeleton for long-running SSH sessions
-- Session state machine (`IDLE/CONNECTING/CONNECTED/FAILED`)
-- SSH abstraction interfaces (`SshClient`, `SshSession`)
-- `sshj`-based real SSH adapter with `PTY shell`, `window-change`, and stream read/write loop
-- Host key change detection UX (fingerprint dialog with `Reject (Default)`, `Trust Once`, `Update known_hosts`)
-- stdin 입력 UI (`Ctrl/Alt/ESC/TAB/ENTER`, 방향키, `^C/^D`, 실시간 키 입력 전송)
-- SFTP 파일 브라우저: 영속 세션, 자동 디렉터리 리스팅, SAF 기반 업로드/다운로드(진행률 표시), mkdir/삭제/이름변경, 롱프레스 컨텍스트 메뉴
-- Android 14+/targetSdk 35 foreground service 권한 정리 (`FOREGROUND_SERVICE_DATA_SYNC`)
-- 터미널 렌더링 개선: Nerd Font 번들 적용 + truecolor(24-bit) 색상 처리
-- GitHub Actions CI: `assembleDebug` + `testDebugUnitTest`
-- CI artifacts: debug APK + unit test reports
-- Placeholder key repository interface for Keystore+AEAD implementation
+<p align="center">
+  <a href="https://github.com/jy1655/android-ssh/actions"><img src="https://github.com/jy1655/android-ssh/actions/workflows/android-ci.yml/badge.svg" alt="CI" /></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" /></a>
+  <img src="https://img.shields.io/badge/platform-Android%2026%2B-green.svg" alt="Platform" />
+</p>
 
-- 한글/CJK 입력 정상 처리 (IME composition 인식) + 전각 문자 렌더링
-- 터미널 스크롤백 (드래그로 이전 출력 확인, 2000줄 버퍼) + PgUp/PgDn 버튼으로 페이지 단위 로컬 스크롤
-- Terminal bell 알림: BEL 수신 시 Android 알림 (디바운스 5초, 탭별 독립)
+---
 
-## Current scope
+## Why AndSSH?
 
-SSH 터미널 + SFTP 파일 관리가 동작하는 상태. `sshj` 기반.
+Most mobile SSH apps are either abandoned, cloud-dependent, or locked behind subscriptions.
+AndSSH is built for developers and sysadmins who want a **capable, secure, and private** SSH terminal on Android — with everything stored on-device.
 
-## Code convention
+## Features
 
-- Team convention: `docs/code-convention.md`
-- Editor baseline: `.editorconfig`
+### Terminal
 
-Recent refactor baseline:
+- Full terminal emulation via [Termux terminal-view](https://github.com/termux/termux-app) (xterm-256color, truecolor 24-bit)
+- Unicode, CJK, and Korean IME composition support
+- Scrollback buffer with page-up/page-down navigation
+- Terminal bell notifications (per-tab, debounced)
+- Split-view: run two terminal panes side by side
+- Customizable color schemes per connection (Solarized, Dracula, Nord, and more)
+- Adjustable font size with pinch-to-zoom
+- Configurable cursor style (block / underline / bar)
+- Haptic feedback on key press
+- Command snippet library with quick search and run
+- Local command history
 
-- `ConnectionProfile -> ConnectRequest` 생성 경로를 공용 팩토리로 통일
-- SSH/SFTP의 `sshj` 인증 로직을 공용 함수로 통일
-- `known_hosts` 파일 생성/업데이트 로직을 공용 유틸로 통일
+### SSH & Networking
 
-## Build & test (CLI, WSL 기준)
+- SSH-2 via [sshj](https://github.com/hierynomus/sshj) with BouncyCastle provider
+- Password, public key (RSA / Ed25519 / ECDSA), and certificate-based authentication
+- In-app SSH key generation
+- ProxyJump / jump-host chaining
+- Port forwarding — local, remote, and dynamic SOCKS
+- Port knocking (per-connection sequence + delay)
+- Keepalive interval configuration
+- SSH compression toggle
+- Mosh protocol support with automatic SSH fallback
+- SSH Agent forwarding
+- Auto-reconnect on network change
 
-This repository now includes Gradle Wrapper (`gradlew`).
+### SFTP
 
-1. Prepare environment variables:
+- Built-in file browser with directory listing, upload, download (progress bar)
+- Create, rename, delete files and directories (including recursive delete)
+- Multi-file selection with bulk operations
+- Pull-to-refresh
+- Permission editing (chmod)
+- SAF (Storage Access Framework) integration
+
+### Connection Management
+
+- Encrypted connection profiles (AES-GCM backed by Android Keystore)
+- Quick Connect for one-off sessions
+- Groups, tags, and search/filter
+- SSH config import (`~/.ssh/config`)
+- Encrypted local backup and restore
+- Per-connection startup commands
+- Per-connection environment variables
+
+### Security
+
+- **App lock** — master password and/or biometric (fingerprint, face) with device-bound Keystore key
+- **Auto-lock timeout** — configurable inactivity lock
+- **Clipboard protection** — auto-clear timer + Android 13+ sensitive content flag
+- **Screenshot prevention** — optional `FLAG_SECURE` toggle
+- **In-memory zeroization** — passwords, keys, and sensitive buffers are zeroed after use
+- **Strict host key checking** — fingerprint verification with reject-by-default policy
+
+### Customization
+
+- Customizable hardware keyboard bindings
+- Configurable virtual key row (Ctrl, Alt, ESC, Tab, arrows, function keys)
+- Dark / light theme support
+- Nerd Font bundled; additional font options
+- Terminal workspace restoration on launch
+
+## Known Limitations
+
+- **Security key enrollment** is disabled in this release. The U2F-based enrollment flow was rejected by the device/Play Services combination across all tested `appId` candidates. Existing enrolled security key connections continue to work. A FIDO2-based replacement is tracked as a future milestone.
+- SSH key agent forwarding is limited to the active session lifetime.
+
+## Getting Started
+
+### Prerequisites
+
+| Requirement | Version |
+|---|---|
+| JDK | 17 |
+| Android SDK | API 35 (compileSdk) |
+| Gradle | Wrapper included (`./gradlew`) |
+
+> **Tip**: [Android Studio](https://developer.android.com/studio) includes the JDK and SDK. For CLI-only builds, install JDK 17 separately and use `sdkmanager` to fetch the SDK.
+
+### Build
 
 ```bash
-export JAVA_HOME=/home/h1655/Dev/android-ssh/.local/jdk/jdk-17.0.14+7
-export ANDROID_SDK_ROOT=/home/h1655/Dev/android-ssh/.local/android-sdk
-export GRADLE_USER_HOME=/home/h1655/Dev/android-ssh/.gradle-local
-export PATH="$JAVA_HOME/bin:$ANDROID_SDK_ROOT/platform-tools:$PATH"
-```
-
-2. Build debug APK:
-
-```bash
+# Debug APK
 ./gradlew assembleDebug
+
+# Unit tests
+./gradlew testDebugUnitTest
+
+# Style and quality checks
+./gradlew ktlintCheck detekt
 ```
 
-3. Run unit tests:
-
-```bash
-./gradlew --no-daemon testDebugUnitTest
-```
-
-4. Run style/quality checks:
-
-```bash
-./gradlew --no-daemon ktlintCheck detekt
-```
-
-5. (Optional) Run connected Android tests:
-
-```bash
-./gradlew --no-daemon connectedDebugAndroidTest
-```
-
-### Automation scripts
-
-- CI-equivalent local check:
+Or run the CI-equivalent script:
 
 ```bash
 ./scripts/ci-check.sh
 ```
 
-- Physical-device smoke run (unit test + install + launch):
+### Install on a Connected Device
 
 ```bash
-./scripts/device-smoke.sh
+./gradlew installDebug
+adb shell am start -n com.opencode.sshterminal/.app.MainActivity
 ```
 
-- If you only want install + launch on a connected device:
+A convenience script is also available:
 
 ```bash
-./scripts/device-smoke.sh --skip-tests
+./scripts/device-smoke.sh          # test + install + launch
+./scripts/device-smoke.sh --skip-tests  # install + launch only
 ```
 
-- Security-key(OpenSSH `sk-ecdsa`) 실기기 E2E 서버 준비/로그 확인:
+## Release Build (Google Play)
 
-```bash
-./scripts/security-key-e2e.sh start
-./scripts/security-key-e2e.sh status
-./scripts/security-key-e2e.sh show-log
-./scripts/security-key-e2e.sh stop
+1. **Bump version** in `app/build.gradle.kts` — increment `versionCode`, set `versionName`.
+
+2. **Prepare signing config** (do not commit secrets):
+
+   ```bash
+   cp keystore.properties.example keystore.properties
+   ```
+
+   Fill in `keystore.properties`:
+
+   ```properties
+   storeFile=/absolute/path/to/upload-keystore.jks
+   storePassword=...
+   keyAlias=...
+   keyPassword=...
+   ```
+
+   Alternatively, export environment variables:
+
+   ```
+   ANDROID_UPLOAD_STORE_FILE
+   ANDROID_UPLOAD_STORE_PASSWORD
+   ANDROID_UPLOAD_KEY_ALIAS
+   ANDROID_UPLOAD_KEY_PASSWORD
+   ```
+
+3. **Build AAB**:
+
+   ```bash
+   ./gradlew :app:bundleRelease
+   ```
+
+   Output: `app/build/outputs/bundle/release/app-release.aab`
+
+4. Upload the `.aab` to [Google Play Console](https://play.google.com/console).
+
+## Project Structure
+
+```
+app/src/main/java/com/opencode/sshterminal/
+├── app/          # Application, MainActivity, Hilt setup
+├── data/         # Persistence models and repositories
+├── security/     # Encryption, key management, biometric, U2F
+├── service/      # Foreground service, bell notifier
+├── session/      # Session and tab state machine
+├── sftp/         # SFTP protocol adapter (sshj)
+├── ssh/          # SSH protocol adapter (sshj)
+└── ui/           # Jetpack Compose screens and ViewModels
 ```
 
-- If multiple devices are connected, select one with `ANDROID_SERIAL`:
+## Code Convention
 
-```bash
-ANDROID_SERIAL=<device-id> ./scripts/device-smoke.sh
+See [`docs/code-convention.md`](docs/code-convention.md) for the team style guide. Baseline tooling:
+
+- **ktlint** — code style
+- **detekt** — static analysis (baseline: `app/detekt-baseline.xml`)
+- **EditorConfig** — `.editorconfig` at repo root
+
+## Contributing
+
+Contributions are welcome. Please read [`CONTRIBUTING.md`](CONTRIBUTING.md) before opening a pull request.
+
+## Security
+
+If you discover a vulnerability, **do not open a public issue**. Follow the process in [`SECURITY.md`](SECURITY.md) — preferably via [GitHub Security Advisories](https://github.com/jy1655/android-ssh/security/advisories/new).
+
+## License
+
+This project is licensed under the [MIT License](LICENSE).
+
 ```
-
-## Release build for Google Play
-
-1. Bump release version in `app/build.gradle.kts`:
-
-- `versionCode` must be higher than the previous Play release
-- `versionName` should match your release label
-
-2. Prepare upload signing config (do not commit secrets):
-
-```bash
-cp keystore.properties.example keystore.properties
+MIT License — Copyright (c) 2026 AndSSH contributors
 ```
-
-Fill `keystore.properties`:
-
-```properties
-storeFile=/absolute/path/to/upload-keystore.jks
-storePassword=...
-keyAlias=...
-keyPassword=...
-```
-
-You can use env vars instead of file:
-
-- `ANDROID_UPLOAD_STORE_FILE`
-- `ANDROID_UPLOAD_STORE_PASSWORD`
-- `ANDROID_UPLOAD_KEY_ALIAS`
-- `ANDROID_UPLOAD_KEY_PASSWORD`
-
-3. Build AAB:
-
-```bash
-./gradlew --no-daemon :app:bundleRelease
-```
-
-Output:
-
-- `app/build/outputs/bundle/release/app-release.aab`
-
-4. Upload `app-release.aab` to Play Console (`Internal testing` or `Production` track).
-
-Output APK path:
-
-- `app/build/outputs/apk/debug/app-debug.apk`
-
-Detekt baseline path:
-
-- `app/detekt-baseline.xml`
-
-## Run on Android device
-
-1. (WSL2) Windows PowerShell에서 폰을 WSL로 attach:
-
-```powershell
-usbipd bind --busid <BUSID>
-usbipd attach --wsl --busid <BUSID>
-```
-
-2. WSL에서 ADB 연결 확인 (`device` 상태여야 함):
-
-```bash
-adb devices -l
-```
-
-3. 디버그 앱 설치:
-
-```bash
-./gradlew --no-daemon installDebug
-```
-
-4. 앱 실행:
-
-```bash
-adb shell am start --user current -n com.opencode.sshterminal/.app.MainActivity
-```
-
-If `unauthorized` appears, approve the RSA debugging prompt on the phone.
-If `no permissions` appears, add a udev rule for your vendor ID and reload rules.
-
-## Data note
-
-- Saved connection profiles are encrypted with Android Keystore-backed AES-GCM.
-- Legacy plaintext profile payloads are not loaded.
-
-## Next implementation order
-
-1. Replace custom Compose renderer with `terminal-view` integration (or `libvterm`-based engine)
-2. Implement `KeyRepository` with Android Keystore-backed AEAD encryption
-3. SFTP 개선: pull-to-refresh (Compose BOM 업그레이드 필요), 재귀 디렉터리 삭제, 다중 파일 선택
-
-## Important paths
-
-- `app/src/main/java/com/opencode/sshterminal/session/SessionManager.kt`
-- `app/src/main/java/com/opencode/sshterminal/ssh/SshClient.kt`
-- `app/src/main/java/com/opencode/sshterminal/terminal/TermuxTerminalBridge.kt`
-- `app/src/main/java/com/opencode/sshterminal/service/SshForegroundService.kt`
-- `app/src/main/java/com/opencode/sshterminal/sftp/SftpChannelAdapter.kt`
-- `app/src/main/java/com/opencode/sshterminal/sftp/SshjSftpAdapter.kt`
-- `app/src/main/java/com/opencode/sshterminal/ui/sftp/SftpBrowserViewModel.kt`
-- `app/src/main/java/com/opencode/sshterminal/ui/sftp/SftpBrowserScreen.kt`
-- `app/src/main/java/com/opencode/sshterminal/service/BellNotifier.kt`
-- `app/src/test/java/com/opencode/sshterminal/sftp/SshjSftpAdapterTest.kt`
-- `app/src/test/java/com/opencode/sshterminal/ui/terminal/TerminalScrollTest.kt`

@@ -31,6 +31,18 @@ val releaseStoreFile = releaseConfig("storeFile", "ANDROID_UPLOAD_STORE_FILE")
 val releaseStorePassword = releaseConfig("storePassword", "ANDROID_UPLOAD_STORE_PASSWORD")
 val releaseKeyAlias = releaseConfig("keyAlias", "ANDROID_UPLOAD_KEY_ALIAS")
 val releaseKeyPassword = releaseConfig("keyPassword", "ANDROID_UPLOAD_KEY_PASSWORD")
+val enableSecurityKeyEnroll =
+    providers
+        .gradleProperty("andssh.enableSecurityKeyEnroll")
+        .orNull
+        ?.toBooleanStrictOrNull()
+        ?: false
+val enableFido2Poc =
+    providers
+        .gradleProperty("andssh.enableFido2Poc")
+        .orNull
+        ?.toBooleanStrictOrNull()
+        ?: false
 val hasReleaseSigningConfig =
     listOf(
         releaseStoreFile,
@@ -51,6 +63,8 @@ android {
         versionName = "0.1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("boolean", "ENABLE_SECURITY_KEY_ENROLL", enableSecurityKeyEnroll.toString())
+        buildConfigField("boolean", "ENABLE_FIDO2_POC", enableFido2Poc.toString())
     }
 
     signingConfigs {

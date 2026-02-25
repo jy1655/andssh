@@ -40,7 +40,7 @@
 
 1. 앱 실행 후 `새 연결` 화면으로 이동한다.
 2. `Host`, `Port`, `Username`을 서버 출력값으로 입력한다.
-3. `Security key application`은 기본값 `https://andssh.local` 유지(권장).
+3. `Security key application`은 비워두면 앱 서명 facet(`android:apk-key-hash:...`)이 자동 적용된다(권장).
 4. `Enroll Security Key`를 누르고 보안키 터치를 완료한다.
 5. `Copy authorized_key`를 눌러 공개키를 복사한다.
 6. 데스크톱에서 `authorized_keys` 파일에 한 줄로 붙여넣는다.
@@ -76,7 +76,21 @@
   - 동일 Wi-Fi/네트워크인지 확인
   - 방화벽에서 테스트 포트(`10022`) 허용 여부 확인
 
-## 7. 정리
+## 7. FIDO2 PoC (옵션)
+
+FIDO2 PoC 경로를 함께 검증하려면 플래그를 켜서 빌드한다:
+
+```bash
+./gradlew assembleDebug -Pandssh.enableFido2Poc=true
+```
+
+실기기에서 `Enroll Security Key` 수행 후 아래 로그를 수집한다:
+
+```bash
+adb logcat -s AndSSH-FIDO2 AndSSH-U2F
+```
+
+## 8. 정리
 
 테스트 서버 종료:
 

@@ -59,6 +59,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.opencode.sshterminal.BuildConfig
 import com.opencode.sshterminal.R
 import com.opencode.sshterminal.data.ConnectionIdentity
 import com.opencode.sshterminal.data.ConnectionProfile
@@ -611,7 +612,7 @@ private data class ConnectionDraft(
     val portForwards: List<PortForwardRule> = emptyList(),
 )
 
-private const val DEFAULT_SECURITY_KEY_APPLICATION = "https://andssh.local"
+private const val DEFAULT_SECURITY_KEY_APPLICATION = ""
 
 private fun ConnectionProfile?.toDraft(): ConnectionDraft =
     ConnectionDraft(
@@ -787,6 +788,13 @@ private fun ConnectionBottomSheet(
                 draft = draft.copy(privateKeyPath = generatedPath, privateKeyPassphrase = "")
             },
         )
+    val securityKeyEnrollEnabled = BuildConfig.ENABLE_SECURITY_KEY_ENROLL
+    val securityKeyEnrollDisabledReason =
+        if (securityKeyEnrollEnabled) {
+            null
+        } else {
+            context.getString(R.string.connection_security_key_enroll_disabled_release)
+        }
 
     ModalBottomSheet(
         onDismissRequest = {
@@ -869,6 +877,8 @@ private fun ConnectionBottomSheet(
                     }
                 },
                 onClearPortForwards = { draft = draft.copy(portForwards = emptyList()) },
+                securityKeyEnrollEnabled = securityKeyEnrollEnabled,
+                securityKeyEnrollDisabledReason = securityKeyEnrollDisabledReason,
                 onEnrollSecurityKey = {
                     val normalizedApplication =
                         draft.securityKeyApplication
@@ -995,6 +1005,8 @@ private fun ConnectionFormFields(
     onMovePortForwardRule: (Int, Int) -> Unit,
     onRemovePortForwardRuleAt: (Int) -> Unit,
     onClearPortForwards: () -> Unit,
+    securityKeyEnrollEnabled: Boolean,
+    securityKeyEnrollDisabledReason: String?,
     onEnrollSecurityKey: () -> Unit,
     onClearSecurityKey: () -> Unit,
     onCopySecurityKeyAuthorizedKey: () -> Unit,
@@ -1178,6 +1190,8 @@ private fun ConnectionFormFields(
                 draft.securityKeyPublicKeyBase64.isNotBlank() &&
                 draft.securityKeyApplication.isNotBlank(),
         authorizedKey = draft.securityKeyAuthorizedKey,
+        enrollEnabled = securityKeyEnrollEnabled,
+        enrollDisabledReason = securityKeyEnrollDisabledReason,
         onApplicationChange = { value ->
             onDraftChange(draft.copy(securityKeyApplication = value))
         },

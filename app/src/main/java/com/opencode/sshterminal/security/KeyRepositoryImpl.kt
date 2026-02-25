@@ -40,10 +40,7 @@ class KeyRepositoryImpl
                 iv = ivBytes
                 encryptedBytes = encrypted
 
-                combined = ByteArray(1 + ivBytes.size + encrypted.size)
-                combined[0] = ivBytes.size.toByte()
-                System.arraycopy(ivBytes, 0, combined, 1, ivBytes.size)
-                System.arraycopy(encrypted, 0, combined, 1 + ivBytes.size, encrypted.size)
+                combined = encodeEncryptedPrivateKeyBlob(iv = ivBytes, ciphertext = encrypted)
 
                 fileForAlias(alias).writeBytes(combined)
             } finally {
@@ -64,13 +61,9 @@ class KeyRepositoryImpl
                 val combined = file.readBytes()
                 if (combined.isEmpty()) return null
                 try {
-                    val ivLen = combined[0].toInt() and 0xFF
-                    if (ivLen <= 0 || combined.size <= 1 + ivLen) {
-                        return null
-                    }
-
-                    val iv = combined.copyOfRange(1, 1 + ivLen)
-                    val ciphertext = combined.copyOfRange(1 + ivLen, combined.size)
+                    val blob = decodeEncryptedPrivateKeyBlob(combined) ?: return null
+                    val iv = blob.iv
+                    val ciphertext = blob.ciphertext
                     try {
                         val cipher = Cipher.getInstance(TRANSFORMATION)
                         cipher.init(Cipher.DECRYPT_MODE, getOrCreateKey(), GCMParameterSpec(GCM_TAG_BITS, iv))
@@ -150,3 +143,37 @@ class KeyRepositoryImpl
             private const val FILE_EXTENSION = ".enc"
         }
     }
+
+internal data class EncryptedPrivateKeyBlob(
+    val iv: ByteArray,
+    val ciphertext: ByteArray,
+)
+
+internal fun encodeEncryptedPrivateKeyBlob(
+    iv: ByteArray,
+    ciphertext: ByteArray,
+): ByteArray {
+    require(iv.isNotEmpty()) { "IV must not be empty" }
+    require(iv.size <= MAX_ENCRYPTED_BLOB_IV_LENGTH) { "IV is too large" }
+    val combined = ByteArray(1 + iv.size + ciphertext.size)
+    combined[0] = iv.size.toByte()
+    System.arraycopy(iv, 0, combined, 1, iv.size)
+    System.arraycopy(ciphertext, 0, combined, 1 + iv.size, ciphertext.size)
+    return combined
+}
+
+internal fun decodeEncryptedPrivateKeyBlob(combined: ByteArray): EncryptedPrivateKeyBlob? {
+    val ivLen = combined.firstOrNull()?.toInt()?.and(0xFF)
+    val isValid = ivLen != null && ivLen > 0 && combined.size > 1 + ivLen
+    return if (!isValid) {
+        null
+    } else {
+        val validIvLen = requireNotNull(ivLen)
+        EncryptedPrivateKeyBlob(
+            iv = combined.copyOfRange(1, 1 + validIvLen),
+            ciphertext = combined.copyOfRange(1 + validIvLen, combined.size),
+        )
+    }
+}
+
+private const val MAX_ENCRYPTED_BLOB_IV_LENGTH = 255

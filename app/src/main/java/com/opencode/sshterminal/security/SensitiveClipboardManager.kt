@@ -49,8 +49,13 @@ class SensitiveClipboardManager
 
             pendingClearJob =
                 scope.launch {
-                    val timeoutSeconds = settingsRepository.clipboardTimeoutSeconds.first().coerceAtLeast(0)
-                    if (timeoutSeconds == 0) return@launch
+                    val timeoutSeconds =
+                        normalizeClipboardTimeoutSeconds(
+                            settingsRepository.clipboardTimeoutSeconds.first(),
+                        )
+                    if (!shouldScheduleClipboardAutoClear(timeoutSeconds)) {
+                        return@launch
+                    }
                     val clearRunnable =
                         Runnable {
                             clearClipboard()
@@ -76,3 +81,7 @@ class SensitiveClipboardManager
             }
         }
     }
+
+internal fun normalizeClipboardTimeoutSeconds(timeoutSeconds: Int): Int = timeoutSeconds.coerceAtLeast(0)
+
+internal fun shouldScheduleClipboardAutoClear(timeoutSeconds: Int): Boolean = timeoutSeconds > 0

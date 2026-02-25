@@ -3,6 +3,7 @@ package com.opencode.sshterminal.security
 import android.app.Activity
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.util.Log
@@ -37,34 +38,57 @@ class U2fSecurityKeyManager
         @ApplicationContext private val context: Context,
         private val u2fActivityBridge: U2fActivityBridge,
     ) {
-        @Suppress("ReturnCount", "ThrowsCount", "TooGenericExceptionCaught", "LoopWithTooManyJumpStatements")
+        private val defaultSecurityKeyApplication by lazy { resolveDefaultSecurityKeyApplication() }
+
+        @Suppress(
+            "ReturnCount",
+            "ThrowsCount",
+            "TooGenericExceptionCaught",
+            "LoopWithTooManyJumpStatements",
+            "LongMethod",
+            "NestedBlockDepth",
+        )
         suspend fun enrollSecurityKey(
             application: String,
             comment: String,
         ): EnrolledSecurityKey {
-            val normalizedApplication = application.trim().ifBlank { DEFAULT_SECURITY_KEY_APPLICATION }
-            val effectiveApplication =
-                if (normalizedApplication == LEGACY_OPENSSH_APPLICATION) {
-                    DEFAULT_SECURITY_KEY_APPLICATION
-                } else {
-                    normalizedApplication
-                }
+            val effectiveApplication = resolveRequestedApplication(application)
             val candidates =
-                buildList {
-                    add(effectiveApplication)
-                    if (effectiveApplication != GOOGLE_FALLBACK_APPLICATION) {
-                        add(GOOGLE_FALLBACK_APPLICATION)
-                    }
-                }
+                listOf(
+                    effectiveApplication,
+                    defaultSecurityKeyApplication,
+                    LEGACY_PLACEHOLDER_APPLICATION,
+                    LEGACY_OPENSSH_APPLICATION,
+                ).map(String::trim)
+                    .filter(String::isNotBlank)
+                    .distinct()
             var lastFailure: Throwable? = null
+            val badRequestCandidates = mutableListOf<String>()
             for (candidate in candidates) {
                 try {
                     return enrollWithAppId(candidate, comment)
                 } catch (failure: U2fEnrollmentException) {
                     lastFailure = failure
-                    Log.w(TAG, "U2F enroll failed for appId=$candidate (${failure.code}): ${failure.message}")
-                    if (failure.code == ErrorCode.BAD_REQUEST && candidate != candidates.last()) {
-                        continue
+                    logU2fFailure(
+                        stage = "enroll",
+                        appId = candidate,
+                        code = failure.code,
+                        message = failure.message,
+                    )
+                    if (failure.code == ErrorCode.BAD_REQUEST) {
+                        badRequestCandidates += candidate
+                        if (candidate != candidates.last()) {
+                            continue
+                        }
+                        if (badRequestCandidates.size == candidates.size) {
+                            val rejectedAppIds = badRequestCandidates.joinToString()
+                            throw U2fEnrollmentException(
+                                code = ErrorCode.BAD_REQUEST,
+                                message =
+                                    "U2F registration was rejected for every appId candidate: $rejectedAppIds. " +
+                                        "This device or current Google Play services may not support U2F enrollment.",
+                            )
+                        }
                     }
                     throw failure
                 } catch (failure: Exception) {
@@ -76,7 +100,13 @@ class U2fSecurityKeyManager
                             message = "U2F enrollment error for appId=$candidate: $reason",
                         )
                     lastFailure = wrapped
-                    Log.w(TAG, "U2F enrollment unexpected failure for appId=$candidate", failure)
+                    logU2fFailure(
+                        stage = "enroll_unexpected",
+                        appId = candidate,
+                        code = null,
+                        message = wrapped.message,
+                        throwable = failure,
+                    )
                     if (candidate != candidates.last()) {
                         continue
                     }
@@ -116,7 +146,17 @@ class U2fSecurityKeyManager
             val result = u2fActivityBridge.launchPendingIntent(pendingIntent)
             if (result.resultCode != Activity.RESULT_OK) return null
             val response = result.data.extractResponseData() ?: return null
-            if (response is ErrorResponseData) return null
+            if (response is ErrorResponseData) {
+                val responseMessage = response.errorMessageOrNull()
+                val reason = responseMessage ?: "code=${response.errorCode}(${response.errorCodeAsInt})"
+                logU2fFailure(
+                    stage = "sign",
+                    appId = application,
+                    code = response.errorCode,
+                    message = "U2F sign failed: $reason",
+                )
+                return null
+            }
             val signResponse = response as? SignResponseData ?: return null
             return parseU2fSignatureData(signResponse.signatureData)
         }
@@ -136,6 +176,70 @@ class U2fSecurityKeyManager
         private fun String.fromBase64OrNull(): ByteArray? = runCatching { Base64.getDecoder().decode(this) }.getOrNull()
 
         private fun sha256(bytes: ByteArray): ByteArray = MessageDigest.getInstance("SHA-256").digest(bytes)
+
+        private fun resolveRequestedApplication(application: String): String {
+            val normalized = application.trim()
+            return if (
+                normalized.isBlank() ||
+                normalized == LEGACY_OPENSSH_APPLICATION ||
+                normalized == LEGACY_PLACEHOLDER_APPLICATION
+            ) {
+                defaultSecurityKeyApplication
+            } else {
+                normalized
+            }
+        }
+
+        private fun resolveDefaultSecurityKeyApplication(): String {
+            val signingCertificateBytes =
+                readSigningCertificateBytes(
+                    packageManager = context.packageManager,
+                    packageName = context.packageName,
+                )
+            val digest = MessageDigest.getInstance("SHA-1").digest(signingCertificateBytes)
+            val encoded =
+                Base64
+                    .getUrlEncoder()
+                    .withoutPadding()
+                    .encodeToString(digest)
+            return "$ANDROID_APK_KEY_HASH_PREFIX$encoded"
+        }
+
+        @Suppress("DEPRECATION")
+        private fun readSigningCertificateBytes(
+            packageManager: PackageManager,
+            packageName: String,
+        ): ByteArray {
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                val packageInfo =
+                    packageManager.getPackageInfo(
+                        packageName,
+                        PackageManager.GET_SIGNING_CERTIFICATES,
+                    )
+                val signingInfo =
+                    checkNotNull(packageInfo.signingInfo) {
+                        "Missing signing info for package=$packageName"
+                    }
+                val signatures =
+                    if (signingInfo.hasMultipleSigners()) {
+                        signingInfo.apkContentsSigners
+                    } else {
+                        signingInfo.signingCertificateHistory
+                    }
+                checkNotNull(signatures.firstOrNull()?.toByteArray()) {
+                    "Missing signing certificate for package=$packageName"
+                }
+            } else {
+                val packageInfo =
+                    packageManager.getPackageInfo(
+                        packageName,
+                        PackageManager.GET_SIGNATURES,
+                    )
+                checkNotNull(packageInfo.signatures?.firstOrNull()?.toByteArray()) {
+                    "Missing signing certificate for package=$packageName"
+                }
+            }
+        }
 
         @Suppress("ReturnCount", "LongMethod", "ThrowsCount")
         private suspend fun enrollWithAppId(
@@ -176,7 +280,7 @@ class U2fSecurityKeyManager
                     )
             if (response is ErrorResponseData) {
                 val errorCode = response.errorCode
-                val responseMessage = response.errorMessage.takeIf { it.isNotBlank() }
+                val responseMessage = response.errorMessageOrNull()
                 val reason = responseMessage ?: "code=$errorCode(${response.errorCodeAsInt})"
                 throw U2fEnrollmentException(
                     code = errorCode,
@@ -222,14 +326,34 @@ class U2fSecurityKeyManager
 
         companion object {
             private const val U2F_CHALLENGE_BYTES = 32
-            private const val DEFAULT_SECURITY_KEY_APPLICATION = "https://andssh.local"
+            private const val ANDROID_APK_KEY_HASH_PREFIX = "android:apk-key-hash:"
             private const val LEGACY_OPENSSH_APPLICATION = "ssh:"
-            private const val GOOGLE_FALLBACK_APPLICATION = "https://www.gstatic.com/securitykey/origins.json"
-            private const val TAG = "AndSSH-U2F"
+            private const val LEGACY_PLACEHOLDER_APPLICATION = "https://andssh.local"
             private val U2F_PROTOCOL_VERSION = ProtocolVersion.V2
             private val secureRandom = SecureRandom()
         }
     }
+
+private const val U2F_LOG_TAG = "AndSSH-U2F"
+
+@Suppress("UNNECESSARY_SAFE_CALL")
+private fun ErrorResponseData.errorMessageOrNull(): String? = errorMessage?.takeIf { it.isNotBlank() }
+
+private fun logU2fFailure(
+    stage: String,
+    appId: String,
+    code: ErrorCode?,
+    message: String,
+    throwable: Throwable? = null,
+) {
+    val codeLabel = code?.name ?: "NONE"
+    val logMessage = "stage=$stage appId=$appId code=$codeLabel message=$message"
+    if (throwable == null) {
+        Log.w(U2F_LOG_TAG, logMessage)
+    } else {
+        Log.w(U2F_LOG_TAG, logMessage, throwable)
+    }
+}
 
 private suspend fun <T> Task<T>.awaitResult(): T =
     suspendCancellableCoroutine { continuation ->

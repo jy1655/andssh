@@ -46,12 +46,27 @@ class AutoLockManager
         }
 
         fun shouldLockOnResume(): Boolean {
-            if (!appLockEnabled || timeoutSeconds <= 0 || backgroundTimestamp == 0L) {
-                backgroundTimestamp = 0L
-                return false
-            }
-            val elapsed = System.currentTimeMillis() - backgroundTimestamp
+            val shouldLock =
+                shouldAutoLockAfterResume(
+                    appLockEnabled = appLockEnabled,
+                    timeoutSeconds = timeoutSeconds,
+                    backgroundTimestamp = backgroundTimestamp,
+                    nowMillis = System.currentTimeMillis(),
+                )
             backgroundTimestamp = 0L
-            return elapsed >= timeoutSeconds * 1000L
+            return shouldLock
         }
     }
+
+internal fun shouldAutoLockAfterResume(
+    appLockEnabled: Boolean,
+    timeoutSeconds: Int,
+    backgroundTimestamp: Long,
+    nowMillis: Long,
+): Boolean {
+    if (!appLockEnabled || timeoutSeconds <= 0 || backgroundTimestamp == 0L) {
+        return false
+    }
+    val elapsed = nowMillis - backgroundTimestamp
+    return elapsed >= timeoutSeconds * 1000L
+}

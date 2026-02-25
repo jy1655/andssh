@@ -266,6 +266,8 @@ internal fun ConnectionSecurityKeyField(
     application: String,
     isConfigured: Boolean,
     authorizedKey: String,
+    enrollEnabled: Boolean,
+    enrollDisabledReason: String?,
     onApplicationChange: (String) -> Unit,
     onEnroll: () -> Unit,
     onClear: () -> Unit,
@@ -284,7 +286,10 @@ internal fun ConnectionSecurityKeyField(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        OutlinedButton(onClick = onEnroll) {
+        OutlinedButton(
+            onClick = onEnroll,
+            enabled = enrollEnabled,
+        ) {
             Text(stringResource(R.string.connection_enroll_security_key))
         }
         if (isConfigured) {
@@ -308,6 +313,13 @@ internal fun ConnectionSecurityKeyField(
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
+    if (!enrollEnabled && !enrollDisabledReason.isNullOrBlank()) {
+        Text(
+            text = enrollDisabledReason,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+        )
+    }
 }
 
 @Composable

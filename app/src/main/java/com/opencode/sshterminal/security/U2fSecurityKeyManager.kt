@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import com.google.android.gms.fido.Fido
 import com.google.android.gms.fido.common.Transport
+import com.google.android.gms.fido.u2f.api.common.ErrorCode
 import com.google.android.gms.fido.u2f.api.common.ErrorResponseData
 import com.google.android.gms.fido.u2f.api.common.KeyHandle
 import com.google.android.gms.fido.u2f.api.common.ProtocolVersion
@@ -39,10 +40,11 @@ class U2fSecurityKeyManager
         suspend fun enrollSecurityKey(
             application: String,
             comment: String,
-        ): EnrolledSecurityKey? {
-            val appUri = Uri.parse(application)
+        ): EnrolledSecurityKey {
+            val normalizedApplication = application.trim().ifBlank { DEFAULT_SECURITY_KEY_APPLICATION }
+            val appUri = Uri.parse(normalizedApplication)
             val challenge = ByteArray(U2F_CHALLENGE_BYTES).also(secureRandom::nextBytes)
-            val registerRequest = RegisterRequest(ProtocolVersion.V1, challenge, application)
+            val registerRequest = RegisterRequest(ProtocolVersion.V1, challenge, normalizedApplication)
             val params =
                 RegisterRequestParams
                     .Builder()
@@ -52,22 +54,38 @@ class U2fSecurityKeyManager
                     .build()
 
             val pendingIntent = Fido.getU2fApiClient(context).getRegisterIntent(params).awaitResult()
-            if (!pendingIntent.hasPendingIntent()) return null
+            if (!pendingIntent.hasPendingIntent()) {
+                error("U2F registration is unavailable on this device")
+            }
 
             val result = u2fActivityBridge.launchPendingIntent(pendingIntent)
-            if (result.resultCode != Activity.RESULT_OK) return null
-            val response = result.data.extractResponseData() ?: return null
-            if (response is ErrorResponseData) return null
-            val registerResponse = response as? RegisterResponseData ?: return null
-            val material = parseU2fRegisterData(registerResponse.registerData) ?: return null
+            if (result.resultCode != Activity.RESULT_OK) {
+                error("Security key prompt was cancelled")
+            }
+            val response = result.data.extractResponseData() ?: error("Missing U2F registration response")
+            if (response is ErrorResponseData) {
+                val errorCode = response.errorCode
+                if (errorCode == ErrorCode.BAD_REQUEST && normalizedApplication == DEFAULT_SECURITY_KEY_APPLICATION) {
+                    error("U2F BAD_REQUEST for app id 'ssh:'. Try application https://andssh.local")
+                }
+                val responseMessage = response.errorMessage?.takeIf { it.isNotBlank() }
+                val reason = responseMessage ?: "code=$errorCode(${response.errorCodeAsInt})"
+                error("U2F registration failed: $reason")
+            }
+            val registerResponse =
+                response as? RegisterResponseData
+                    ?: error("Unexpected U2F response type: ${response.javaClass.simpleName}")
+            val material =
+                parseU2fRegisterData(registerResponse.registerData)
+                    ?: error("Invalid U2F registration payload")
             return EnrolledSecurityKey(
-                application = application,
+                application = normalizedApplication,
                 keyHandleBase64 = material.keyHandle.toBase64(),
                 publicKeyBase64 = material.publicKeyUncompressed.toBase64(),
                 authorizedKey =
                     buildSshSkEcdsaAuthorizedKey(
                         publicKeyUncompressed = material.publicKeyUncompressed,
-                        application = application,
+                        application = normalizedApplication,
                         comment = comment,
                     ),
             )
@@ -133,6 +151,7 @@ class U2fSecurityKeyManager
 
         companion object {
             private const val U2F_CHALLENGE_BYTES = 32
+            private const val DEFAULT_SECURITY_KEY_APPLICATION = "ssh:"
             private val secureRandom = SecureRandom()
         }
     }

@@ -92,6 +92,7 @@
     <string name="connection_security_key_configured">Hardware security key enrolled</string>
     <string name="connection_security_key_enroll_success">Hardware security key enrolled</string>
     <string name="connection_security_key_enroll_failed">Hardware security key enrollment failed or cancelled</string>
+    <string name="connection_security_key_enroll_failed_reason">Hardware security key enrollment failed: %1$s</string>
     <string name="connection_security_key_copy_success">authorized_key copied</string>
     <string name="connection_security_key_copy_failed">No authorized_key to copy</string>
     <string name="connection_import_ssh_config">Import</string>

@@ -760,7 +760,7 @@ private fun ConnectionBottomSheet(
     onEnrollSecurityKey: (
         application: String,
         displayName: String,
-        onComplete: (SecurityKeyEnrollmentResult?) -> Unit,
+        onComplete: (SecurityKeyEnrollmentResult?, String?) -> Unit,
     ) -> Unit,
     onDismiss: () -> Unit,
     onSave: (ConnectionProfile) -> Unit,
@@ -881,11 +881,22 @@ private fun ConnectionBottomSheet(
                     onEnrollSecurityKey(
                         normalizedApplication,
                         displayName,
-                    ) { enrolled ->
+                    ) { enrolled, errorMessage ->
                         if (enrolled == null) {
+                            val failureText =
+                                errorMessage
+                                    ?.trim()
+                                    ?.takeIf { it.isNotEmpty() }
+                                    ?.let { reason ->
+                                        context.getString(
+                                            R.string.connection_security_key_enroll_failed_reason,
+                                            reason,
+                                        )
+                                    }
+                                    ?: context.getString(R.string.connection_security_key_enroll_failed)
                             Toast.makeText(
                                 context,
-                                context.getString(R.string.connection_security_key_enroll_failed),
+                                failureText,
                                 Toast.LENGTH_SHORT,
                             ).show()
                         } else {

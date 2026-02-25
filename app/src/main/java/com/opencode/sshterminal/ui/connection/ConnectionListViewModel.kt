@@ -129,26 +129,27 @@ class ConnectionListViewModel
         fun enrollHardwareSecurityKey(
             application: String,
             displayName: String,
-            onComplete: (SecurityKeyEnrollmentResult?) -> Unit,
+            onComplete: (SecurityKeyEnrollmentResult?, String?) -> Unit,
         ) {
             viewModelScope.launch {
-                val enrolled =
-                    runCatching {
-                        u2fSecurityKeyManager.enrollSecurityKey(
-                            application = application,
-                            comment = displayName,
-                        )
-                    }.getOrNull()
-                onComplete(
-                    enrolled?.let { entry ->
+                runCatching {
+                    u2fSecurityKeyManager.enrollSecurityKey(
+                        application = application,
+                        comment = displayName,
+                    )
+                }.onSuccess { enrolled ->
+                    onComplete(
                         SecurityKeyEnrollmentResult(
-                            application = entry.application,
-                            keyHandleBase64 = entry.keyHandleBase64,
-                            publicKeyBase64 = entry.publicKeyBase64,
-                            authorizedKey = entry.authorizedKey,
-                        )
-                    },
-                )
+                            application = enrolled.application,
+                            keyHandleBase64 = enrolled.keyHandleBase64,
+                            publicKeyBase64 = enrolled.publicKeyBase64,
+                            authorizedKey = enrolled.authorizedKey,
+                        ),
+                        null,
+                    )
+                }.onFailure { error ->
+                    onComplete(null, error.message)
+                }
             }
         }
 

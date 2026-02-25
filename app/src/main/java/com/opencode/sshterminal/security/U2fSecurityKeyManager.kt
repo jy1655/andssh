@@ -68,7 +68,7 @@ class U2fSecurityKeyManager
                 if (errorCode == ErrorCode.BAD_REQUEST && normalizedApplication == DEFAULT_SECURITY_KEY_APPLICATION) {
                     error("U2F BAD_REQUEST for app id 'ssh:'. Try application https://andssh.local")
                 }
-                val responseMessage = response.errorMessage?.takeIf { it.isNotBlank() }
+                val responseMessage = response.errorMessage.takeIf { it.isNotBlank() }
                 val reason = responseMessage ?: "code=$errorCode(${response.errorCodeAsInt})"
                 error("U2F registration failed: $reason")
             }
@@ -150,7 +150,7 @@ class U2fSecurityKeyManager
         )
 
         companion object {
-            private const val U2F_CHALLENGE_BYTES = 32
+            private const val U2F_CHALLENGE_BYTES = RegisterRequest.U2F_V1_CHALLENGE_BYTE_LENGTH
             private const val DEFAULT_SECURITY_KEY_APPLICATION = "ssh:"
             private val secureRandom = SecureRandom()
         }

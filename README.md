@@ -139,6 +139,28 @@ A convenience script is also available:
 
 ## Release Build (Google Play)
 
+### Automatic upload on push (recommended)
+
+When you push to `main`, the GitHub Actions `Play Release` workflow builds an AAB and uploads it to Google Play.
+
+1. Add repository secrets:
+   - `PLAY_SERVICE_ACCOUNT_JSON` (Google Play service account JSON, raw content)
+   - `ANDROID_UPLOAD_KEYSTORE_BASE64` (`upload-keystore.jks` base64)
+   - `ANDROID_UPLOAD_STORE_PASSWORD`
+   - `ANDROID_UPLOAD_KEY_ALIAS`
+   - `ANDROID_UPLOAD_KEY_PASSWORD`
+
+2. Optional repository variables:
+   - `PLAY_TRACK` (default: `internal`)
+   - `PLAY_RELEASE_STATUS` (default: `completed`)
+   - `PLAY_VERSION_CODE_OFFSET` (default: `100000`)
+
+3. Push to `main`.
+   - workflow file: `.github/workflows/play-release.yml`
+   - CI computes version code as `PLAY_VERSION_CODE_OFFSET + GITHUB_RUN_NUMBER` to avoid duplicate version-code upload failures.
+
+### Manual upload
+
 1. **Bump version** in `app/build.gradle.kts` — increment `versionCode`, set `versionName`.
 
 2. **Prepare signing config** (do not commit secrets):
@@ -204,6 +226,12 @@ Contributions are welcome. Please read [`CONTRIBUTING.md`](CONTRIBUTING.md) befo
 ## Security
 
 If you discover a vulnerability, **do not open a public issue**. Follow the process in [`SECURITY.md`](SECURITY.md) — preferably via [GitHub Security Advisories](https://github.com/jy1655/android-ssh/security/advisories/new).
+
+## Privacy Policy
+
+- Source: [`docs/privacy-policy.md`](docs/privacy-policy.md)
+- Public URL for Google Play Console:
+  - https://github.com/jy1655/android-ssh/blob/main/docs/privacy-policy.md
 
 ## License
 

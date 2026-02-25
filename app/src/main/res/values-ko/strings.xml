@@ -305,6 +305,10 @@
     <string name="settings_timeout_15s">15초</string>
     <string name="settings_about_title">정보</string>
     <string name="settings_about_version">버전 %1$s (%2$d)</string>
+    <string name="settings_privacy_policy">개인정보 처리방침</string>
+    <string name="settings_privacy_policy_open">열기</string>
+    <string name="settings_privacy_policy_open_failed">개인정보 처리방침을 열지 못했습니다</string>
+    <string name="settings_privacy_policy_url">https://github.com/jy1655/android-ssh/blob/main/docs/privacy-policy.md</string>
     <string name="settings_crash_logs">크래시 로그</string>
 
     <string name="clipboard_cleared">클립보드가 삭제되었습니다</string>

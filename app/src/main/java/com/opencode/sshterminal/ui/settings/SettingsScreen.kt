@@ -51,6 +51,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -1002,34 +1003,55 @@ private fun <T> SelectionDialog(
 
 @Composable
 private fun AboutSection() {
+    val context = LocalContext.current
+    val uriHandler = LocalUriHandler.current
+    val privacyPolicyUrl = stringResource(R.string.settings_privacy_policy_url)
+
     SectionHeader(stringResource(R.string.settings_about_title))
     Card(
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
     ) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column {
-                Text(
-                    text = stringResource(R.string.app_name),
-                    style = MaterialTheme.typography.titleSmall,
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text =
-                        stringResource(
-                            R.string.settings_about_version,
-                            BuildConfig.VERSION_NAME,
-                            BuildConfig.VERSION_CODE,
-                        ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+        Column {
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column {
+                    Text(
+                        text = stringResource(R.string.app_name),
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text =
+                            stringResource(
+                                R.string.settings_about_version,
+                                BuildConfig.VERSION_NAME,
+                                BuildConfig.VERSION_CODE,
+                            ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
+            SettingsDivider()
+            SettingsValueRow(
+                title = stringResource(R.string.settings_privacy_policy),
+                value = stringResource(R.string.settings_privacy_policy_open),
+                onClick = {
+                    runCatching { uriHandler.openUri(privacyPolicyUrl) }
+                        .onFailure {
+                            Toast.makeText(
+                                context,
+                                context.getString(R.string.settings_privacy_policy_open_failed),
+                                Toast.LENGTH_SHORT,
+                            ).show()
+                        }
+                },
+            )
         }
     }
 }

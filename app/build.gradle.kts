@@ -1,3 +1,4 @@
+import com.github.triplet.gradle.androidpublisher.ReleaseStatus
 import java.util.Properties
 
 plugins {
@@ -8,6 +9,7 @@ plugins {
     id("com.google.devtools.ksp")
     id("org.jlleitschuh.gradle.ktlint")
     id("io.gitlab.arturbosch.detekt")
+    id("com.github.triplet.play")
 }
 
 val keystoreProperties =
@@ -31,6 +33,46 @@ val releaseStoreFile = releaseConfig("storeFile", "ANDROID_UPLOAD_STORE_FILE")
 val releaseStorePassword = releaseConfig("storePassword", "ANDROID_UPLOAD_STORE_PASSWORD")
 val releaseKeyAlias = releaseConfig("keyAlias", "ANDROID_UPLOAD_KEY_ALIAS")
 val releaseKeyPassword = releaseConfig("keyPassword", "ANDROID_UPLOAD_KEY_PASSWORD")
+val ciVersionCode =
+    providers
+        .gradleProperty("andssh.ciVersionCode")
+        .orElse(providers.environmentVariable("ANDROID_VERSION_CODE"))
+        .orNull
+        ?.toIntOrNull()
+val ciVersionName =
+    providers
+        .gradleProperty("andssh.ciVersionName")
+        .orElse(providers.environmentVariable("ANDROID_VERSION_NAME"))
+        .orNull
+        ?.takeIf { it.isNotBlank() }
+val playTrack =
+    providers
+        .gradleProperty("andssh.playTrack")
+        .orElse(providers.environmentVariable("PLAY_TRACK"))
+        .orElse("internal")
+        .get()
+val playReleaseStatusName =
+    providers
+        .gradleProperty("andssh.playReleaseStatus")
+        .orElse(providers.environmentVariable("PLAY_RELEASE_STATUS"))
+        .orElse("COMPLETED")
+        .get()
+        .uppercase()
+val playReleaseStatus =
+    runCatching {
+        ReleaseStatus.valueOf(playReleaseStatusName)
+    }.getOrElse {
+        error(
+            "Invalid play release status: $playReleaseStatusName. " +
+                "Use one of ${ReleaseStatus.values().joinToString()}.",
+        )
+    }
+val playCredentialsPath =
+    providers
+        .gradleProperty("andssh.playServiceAccountCredentials")
+        .orElse(providers.environmentVariable("ANDROID_PUBLISHER_CREDENTIALS"))
+        .orNull
+        ?.takeIf { it.isNotBlank() }
 val enableSecurityKeyEnroll =
     providers
         .gradleProperty("andssh.enableSecurityKeyEnroll")
@@ -59,8 +101,8 @@ android {
         applicationId = "com.opencode.sshterminal"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "0.1.1"
+        versionCode = ciVersionCode ?: 2
+        versionName = ciVersionName ?: "0.1.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("boolean", "ENABLE_SECURITY_KEY_ENROLL", enableSecurityKeyEnroll.toString())
@@ -114,6 +156,15 @@ android {
         resources {
             excludes += "META-INF/versions/9/OSGI-INF/MANIFEST.MF"
         }
+    }
+}
+
+play {
+    track.set(playTrack)
+    releaseStatus.set(playReleaseStatus)
+    defaultToAppBundles.set(true)
+    if (playCredentialsPath != null) {
+        serviceAccountCredentials.set(file(playCredentialsPath))
     }
 }
 

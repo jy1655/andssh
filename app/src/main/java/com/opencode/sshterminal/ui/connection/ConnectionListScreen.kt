@@ -611,7 +611,7 @@ private data class ConnectionDraft(
     val portForwards: List<PortForwardRule> = emptyList(),
 )
 
-private const val DEFAULT_SECURITY_KEY_APPLICATION = "ssh:"
+private const val DEFAULT_SECURITY_KEY_APPLICATION = "https://andssh.local"
 
 private fun ConnectionProfile?.toDraft(): ConnectionDraft =
     ConnectionDraft(

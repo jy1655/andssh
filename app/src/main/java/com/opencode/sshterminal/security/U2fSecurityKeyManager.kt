@@ -42,9 +42,15 @@ class U2fSecurityKeyManager
             comment: String,
         ): EnrolledSecurityKey {
             val normalizedApplication = application.trim().ifBlank { DEFAULT_SECURITY_KEY_APPLICATION }
-            val appUri = Uri.parse(normalizedApplication)
+            val effectiveApplication =
+                if (normalizedApplication == LEGACY_OPENSSH_APPLICATION) {
+                    DEFAULT_SECURITY_KEY_APPLICATION
+                } else {
+                    normalizedApplication
+                }
+            val appUri = Uri.parse(effectiveApplication)
             val challenge = ByteArray(U2F_CHALLENGE_BYTES).also(secureRandom::nextBytes)
-            val registerRequest = RegisterRequest(ProtocolVersion.V1, challenge, normalizedApplication)
+            val registerRequest = RegisterRequest(ProtocolVersion.V1, challenge, effectiveApplication)
             val params =
                 RegisterRequestParams
                     .Builder()
@@ -65,8 +71,8 @@ class U2fSecurityKeyManager
             val response = result.data.extractResponseData() ?: error("Missing U2F registration response")
             if (response is ErrorResponseData) {
                 val errorCode = response.errorCode
-                if (errorCode == ErrorCode.BAD_REQUEST && normalizedApplication == DEFAULT_SECURITY_KEY_APPLICATION) {
-                    error("U2F BAD_REQUEST for app id 'ssh:'. Try application https://andssh.local")
+                if (errorCode == ErrorCode.BAD_REQUEST) {
+                    error("U2F BAD_REQUEST for app id '$effectiveApplication'")
                 }
                 val responseMessage = response.errorMessage.takeIf { it.isNotBlank() }
                 val reason = responseMessage ?: "code=$errorCode(${response.errorCodeAsInt})"
@@ -79,13 +85,13 @@ class U2fSecurityKeyManager
                 parseU2fRegisterData(registerResponse.registerData)
                     ?: error("Invalid U2F registration payload")
             return EnrolledSecurityKey(
-                application = normalizedApplication,
+                application = effectiveApplication,
                 keyHandleBase64 = material.keyHandle.toBase64(),
                 publicKeyBase64 = material.publicKeyUncompressed.toBase64(),
                 authorizedKey =
                     buildSshSkEcdsaAuthorizedKey(
                         publicKeyUncompressed = material.publicKeyUncompressed,
-                        application = normalizedApplication,
+                        application = effectiveApplication,
                         comment = comment,
                     ),
             )
@@ -151,7 +157,8 @@ class U2fSecurityKeyManager
 
         companion object {
             private const val U2F_CHALLENGE_BYTES = RegisterRequest.U2F_V1_CHALLENGE_BYTE_LENGTH
-            private const val DEFAULT_SECURITY_KEY_APPLICATION = "ssh:"
+            private const val DEFAULT_SECURITY_KEY_APPLICATION = "https://andssh.local"
+            private const val LEGACY_OPENSSH_APPLICATION = "ssh:"
             private val secureRandom = SecureRandom()
         }
     }

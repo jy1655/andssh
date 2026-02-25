@@ -84,7 +84,7 @@
     <string name="connection_certificate_import_failed">인증서 파일을 불러오지 못했습니다.</string>
     <string name="connection_private_key_generate_failed">개인 키 파일 생성에 실패했습니다.</string>
     <string name="connection_label_security_key_application">보안키 애플리케이션</string>
-    <string name="connection_security_key_application_placeholder">ssh:</string>
+    <string name="connection_security_key_application_placeholder">https://andssh.local</string>
     <string name="connection_enroll_security_key">보안키 등록</string>
     <string name="connection_clear_security_key">보안키 해제</string>
     <string name="connection_copy_security_key">authorized_key 복사</string>

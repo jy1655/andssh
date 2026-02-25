@@ -40,7 +40,7 @@
 
 1. 앱 실행 후 `새 연결` 화면으로 이동한다.
 2. `Host`, `Port`, `Username`을 서버 출력값으로 입력한다.
-3. `Security key application`은 기본값 `ssh:` 유지(또는 서버 정책에 맞게 입력).
+3. `Security key application`은 기본값 `https://andssh.local` 유지(권장).
 4. `Enroll Security Key`를 누르고 보안키 터치를 완료한다.
 5. `Copy authorized_key`를 눌러 공개키를 복사한다.
 6. 데스크톱에서 `authorized_keys` 파일에 한 줄로 붙여넣는다.

@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
+import android.util.Log
 import com.google.android.gms.fido.Fido
 import com.google.android.gms.fido.common.Transport
 import com.google.android.gms.fido.u2f.api.common.ErrorCode
@@ -36,7 +37,7 @@ class U2fSecurityKeyManager
         @ApplicationContext private val context: Context,
         private val u2fActivityBridge: U2fActivityBridge,
     ) {
-        @Suppress("ReturnCount")
+        @Suppress("ReturnCount", "ThrowsCount")
         suspend fun enrollSecurityKey(
             application: String,
             comment: String,
@@ -48,53 +49,27 @@ class U2fSecurityKeyManager
                 } else {
                     normalizedApplication
                 }
-            val appUri = Uri.parse(effectiveApplication)
-            val challenge = ByteArray(U2F_CHALLENGE_BYTES).also(secureRandom::nextBytes)
-            val registerRequest = RegisterRequest(U2F_PROTOCOL_VERSION, challenge, effectiveApplication)
-            val params =
-                RegisterRequestParams
-                    .Builder()
-                    .setAppId(appUri)
-                    .setRegisterRequests(listOf(registerRequest))
-                    .setRegisteredKeys(emptyList())
-                    .build()
-
-            val pendingIntent = Fido.getU2fApiClient(context).getRegisterIntent(params).awaitResult()
-            if (!pendingIntent.hasPendingIntent()) {
-                error("U2F registration is unavailable on this device")
-            }
-
-            val result = u2fActivityBridge.launchPendingIntent(pendingIntent)
-            if (result.resultCode != Activity.RESULT_OK) {
-                error("Security key prompt was cancelled")
-            }
-            val response = result.data.extractResponseData() ?: error("Missing U2F registration response")
-            if (response is ErrorResponseData) {
-                val errorCode = response.errorCode
-                if (errorCode == ErrorCode.BAD_REQUEST) {
-                    error("U2F BAD_REQUEST for app id '$effectiveApplication'")
+            val candidates =
+                buildList {
+                    add(effectiveApplication)
+                    if (effectiveApplication != GOOGLE_FALLBACK_APPLICATION) {
+                        add(GOOGLE_FALLBACK_APPLICATION)
+                    }
                 }
-                val responseMessage = response.errorMessage.takeIf { it.isNotBlank() }
-                val reason = responseMessage ?: "code=$errorCode(${response.errorCodeAsInt})"
-                error("U2F registration failed: $reason")
+            var lastFailure: Throwable? = null
+            for (candidate in candidates) {
+                try {
+                    return enrollWithAppId(candidate, comment)
+                } catch (failure: U2fEnrollmentException) {
+                    lastFailure = failure
+                    Log.w(TAG, "U2F enroll failed for appId=$candidate (${failure.code}): ${failure.message}")
+                    if (failure.code == ErrorCode.BAD_REQUEST && candidate != candidates.last()) {
+                        continue
+                    }
+                    throw failure
+                }
             }
-            val registerResponse =
-                response as? RegisterResponseData
-                    ?: error("Unexpected U2F response type: ${response.javaClass.simpleName}")
-            val material =
-                parseU2fRegisterData(registerResponse.registerData)
-                    ?: error("Invalid U2F registration payload")
-            return EnrolledSecurityKey(
-                application = effectiveApplication,
-                keyHandleBase64 = material.keyHandle.toBase64(),
-                publicKeyBase64 = material.publicKeyUncompressed.toBase64(),
-                authorizedKey =
-                    buildSshSkEcdsaAuthorizedKey(
-                        publicKeyUncompressed = material.publicKeyUncompressed,
-                        application = effectiveApplication,
-                        comment = comment,
-                    ),
-            )
+            throw (lastFailure ?: error("U2F registration failed"))
         }
 
         @Suppress("ReturnCount")
@@ -148,6 +123,77 @@ class U2fSecurityKeyManager
 
         private fun sha256(bytes: ByteArray): ByteArray = MessageDigest.getInstance("SHA-256").digest(bytes)
 
+        @Suppress("ReturnCount", "LongMethod", "ThrowsCount")
+        private suspend fun enrollWithAppId(
+            appId: String,
+            comment: String,
+        ): EnrolledSecurityKey {
+            val appUri = Uri.parse(appId)
+            val challenge = ByteArray(U2F_CHALLENGE_BYTES).also(secureRandom::nextBytes)
+            val registerRequest = RegisterRequest(U2F_PROTOCOL_VERSION, challenge, appId)
+            val params =
+                RegisterRequestParams
+                    .Builder()
+                    .setAppId(appUri)
+                    .setRegisterRequests(listOf(registerRequest))
+                    .setRegisteredKeys(emptyList())
+                    .build()
+
+            val pendingIntent = Fido.getU2fApiClient(context).getRegisterIntent(params).awaitResult()
+            if (!pendingIntent.hasPendingIntent()) {
+                throw U2fEnrollmentException(
+                    code = null,
+                    message = "U2F registration is unavailable on this device (appId=$appId)",
+                )
+            }
+
+            val result = u2fActivityBridge.launchPendingIntent(pendingIntent)
+            if (result.resultCode != Activity.RESULT_OK) {
+                throw U2fEnrollmentException(
+                    code = null,
+                    message = "Security key prompt was cancelled (appId=$appId)",
+                )
+            }
+            val response =
+                result.data.extractResponseData()
+                    ?: throw U2fEnrollmentException(
+                        code = null,
+                        message = "Missing U2F registration response (appId=$appId)",
+                    )
+            if (response is ErrorResponseData) {
+                val errorCode = response.errorCode
+                val responseMessage = response.errorMessage.takeIf { it.isNotBlank() }
+                val reason = responseMessage ?: "code=$errorCode(${response.errorCodeAsInt})"
+                throw U2fEnrollmentException(
+                    code = errorCode,
+                    message = "U2F registration failed: $reason (appId=$appId)",
+                )
+            }
+            val registerResponse =
+                response as? RegisterResponseData
+                    ?: throw U2fEnrollmentException(
+                        code = null,
+                        message = "Unexpected U2F response type: ${response.javaClass.simpleName} (appId=$appId)",
+                    )
+            val material =
+                parseU2fRegisterData(registerResponse.registerData)
+                    ?: throw U2fEnrollmentException(
+                        code = null,
+                        message = "Invalid U2F registration payload (appId=$appId)",
+                    )
+            return EnrolledSecurityKey(
+                application = appId,
+                keyHandleBase64 = material.keyHandle.toBase64(),
+                publicKeyBase64 = material.publicKeyUncompressed.toBase64(),
+                authorizedKey =
+                    buildSshSkEcdsaAuthorizedKey(
+                        publicKeyUncompressed = material.publicKeyUncompressed,
+                        application = appId,
+                        comment = comment,
+                    ),
+            )
+        }
+
         data class EnrolledSecurityKey(
             val application: String,
             val keyHandleBase64: String,
@@ -155,10 +201,17 @@ class U2fSecurityKeyManager
             val authorizedKey: String,
         )
 
+        private class U2fEnrollmentException(
+            val code: ErrorCode?,
+            override val message: String,
+        ) : IllegalStateException(message)
+
         companion object {
             private const val U2F_CHALLENGE_BYTES = 32
             private const val DEFAULT_SECURITY_KEY_APPLICATION = "https://andssh.local"
             private const val LEGACY_OPENSSH_APPLICATION = "ssh:"
+            private const val GOOGLE_FALLBACK_APPLICATION = "https://www.gstatic.com/securitykey/origins.json"
+            private const val TAG = "AndSSH-U2F"
             private val U2F_PROTOCOL_VERSION = ProtocolVersion.V2
             private val secureRandom = SecureRandom()
         }

@@ -14,19 +14,40 @@ internal enum class TerminalShortcut {
     ARROW_DOWN,
     ARROW_LEFT,
     ARROW_RIGHT,
+    HOME,
+    END,
+    INSERT,
+    DELETE,
     BACKSPACE,
     CTRL_C,
     CTRL_D,
+    F1,
+    F2,
+    F3,
+    F4,
+    F5,
+    F6,
+    F7,
+    F8,
+    F9,
+    F10,
+    F11,
+    F12,
 }
 
 @Composable
 internal fun rememberTerminalInputController(
     onSendBytes: (ByteArray) -> Unit,
     onSubmitCommand: (String) -> Unit,
-): TerminalInputController =
-    remember(onSendBytes, onSubmitCommand) {
-        TerminalInputController(onSendBytes, onSubmitCommand)
-    }
+    directModeEnabled: Boolean = false,
+): TerminalInputController {
+    val controller =
+        remember(onSendBytes, onSubmitCommand) {
+            TerminalInputController(onSendBytes, onSubmitCommand)
+        }
+    controller.directModeEnabled = directModeEnabled
+    return controller
+}
 
 internal class TerminalInputController(
     private val onSendBytes: (ByteArray) -> Unit,
@@ -41,6 +62,16 @@ internal class TerminalInputController(
     var altArmed by mutableStateOf(false)
         private set
 
+    var directModeEnabled by mutableStateOf(false)
+
+    val isComposing: Boolean get() = textFieldValue.composition != null
+
+    val composingText: String
+        get() {
+            val range = textFieldValue.composition ?: return ""
+            return textFieldValue.text.substring(range.start, range.end)
+        }
+
     private var lastCommittedText: String = ""
 
     fun toggleCtrl() {
@@ -51,6 +82,7 @@ internal class TerminalInputController(
         altArmed = !altArmed
     }
 
+    @Suppress("CyclomaticComplexMethod")
     fun onShortcut(shortcut: TerminalShortcut) {
         when (shortcut) {
             TerminalShortcut.ESC -> {
@@ -65,9 +97,25 @@ internal class TerminalInputController(
             TerminalShortcut.ARROW_DOWN -> onSendBytes("\u001B[B".toByteArray(Charsets.UTF_8))
             TerminalShortcut.ARROW_LEFT -> onSendBytes("\u001B[D".toByteArray(Charsets.UTF_8))
             TerminalShortcut.ARROW_RIGHT -> onSendBytes("\u001B[C".toByteArray(Charsets.UTF_8))
+            TerminalShortcut.HOME -> onSendBytes("\u001B[H".toByteArray(Charsets.UTF_8))
+            TerminalShortcut.END -> onSendBytes("\u001B[F".toByteArray(Charsets.UTF_8))
+            TerminalShortcut.INSERT -> onSendBytes("\u001B[2~".toByteArray(Charsets.UTF_8))
+            TerminalShortcut.DELETE -> onSendBytes("\u001B[3~".toByteArray(Charsets.UTF_8))
             TerminalShortcut.BACKSPACE -> onSendBytes(byteArrayOf(0x7F))
             TerminalShortcut.CTRL_C -> onSendBytes(byteArrayOf(0x03))
             TerminalShortcut.CTRL_D -> onSendBytes(byteArrayOf(0x04))
+            TerminalShortcut.F1 -> onSendBytes("\u001BOP".toByteArray(Charsets.UTF_8))
+            TerminalShortcut.F2 -> onSendBytes("\u001BOQ".toByteArray(Charsets.UTF_8))
+            TerminalShortcut.F3 -> onSendBytes("\u001BOR".toByteArray(Charsets.UTF_8))
+            TerminalShortcut.F4 -> onSendBytes("\u001BOS".toByteArray(Charsets.UTF_8))
+            TerminalShortcut.F5 -> onSendBytes("\u001B[15~".toByteArray(Charsets.UTF_8))
+            TerminalShortcut.F6 -> onSendBytes("\u001B[17~".toByteArray(Charsets.UTF_8))
+            TerminalShortcut.F7 -> onSendBytes("\u001B[18~".toByteArray(Charsets.UTF_8))
+            TerminalShortcut.F8 -> onSendBytes("\u001B[19~".toByteArray(Charsets.UTF_8))
+            TerminalShortcut.F9 -> onSendBytes("\u001B[20~".toByteArray(Charsets.UTF_8))
+            TerminalShortcut.F10 -> onSendBytes("\u001B[21~".toByteArray(Charsets.UTF_8))
+            TerminalShortcut.F11 -> onSendBytes("\u001B[23~".toByteArray(Charsets.UTF_8))
+            TerminalShortcut.F12 -> onSendBytes("\u001B[24~".toByteArray(Charsets.UTF_8))
         }
     }
 

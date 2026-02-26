@@ -10,13 +10,17 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -49,10 +53,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.opencode.sshterminal.BuildConfig
@@ -595,6 +603,7 @@ private fun TerminalSection(
         selected = state.terminalFontSizeSp,
         onSelected = viewModel::setTerminalFontSizeSp,
         onDismiss = { showFontSizeDialog = false },
+        showScrollIndicator = true,
     )
     SelectionDialog(
         show = showCursorDialog,
@@ -832,9 +841,25 @@ private fun shortcutLayoutItemLabel(item: TerminalShortcutLayoutItem): String {
         TerminalShortcutLayoutItem.ARROW_DOWN -> "\u2193"
         TerminalShortcutLayoutItem.ARROW_LEFT -> "\u2190"
         TerminalShortcutLayoutItem.ARROW_RIGHT -> "\u2192"
+        TerminalShortcutLayoutItem.HOME -> "Home"
+        TerminalShortcutLayoutItem.END -> "End"
+        TerminalShortcutLayoutItem.INSERT -> "Ins"
+        TerminalShortcutLayoutItem.DELETE -> "Del"
         TerminalShortcutLayoutItem.BACKSPACE -> "\u232B"
         TerminalShortcutLayoutItem.PAGE_UP -> "PgUp"
         TerminalShortcutLayoutItem.PAGE_DOWN -> "PgDn"
+        TerminalShortcutLayoutItem.F1 -> "F1"
+        TerminalShortcutLayoutItem.F2 -> "F2"
+        TerminalShortcutLayoutItem.F3 -> "F3"
+        TerminalShortcutLayoutItem.F4 -> "F4"
+        TerminalShortcutLayoutItem.F5 -> "F5"
+        TerminalShortcutLayoutItem.F6 -> "F6"
+        TerminalShortcutLayoutItem.F7 -> "F7"
+        TerminalShortcutLayoutItem.F8 -> "F8"
+        TerminalShortcutLayoutItem.F9 -> "F9"
+        TerminalShortcutLayoutItem.F10 -> "F10"
+        TerminalShortcutLayoutItem.F11 -> "F11"
+        TerminalShortcutLayoutItem.F12 -> "F12"
         TerminalShortcutLayoutItem.CTRL_C -> "^C"
         TerminalShortcutLayoutItem.CTRL_D -> "^D"
         TerminalShortcutLayoutItem.PASTE -> stringResource(R.string.terminal_paste)
@@ -956,10 +981,14 @@ private fun <T> SelectionDialog(
     selected: T,
     onSelected: (T) -> Unit,
     onDismiss: () -> Unit,
+    showScrollIndicator: Boolean = false,
 ) {
     if (!show) {
         return
     }
+    val scrollState = rememberScrollState()
+    var viewportHeightPx by remember { mutableStateOf(0) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
@@ -969,31 +998,100 @@ private fun <T> SelectionDialog(
             }
         },
         text = {
-            Column {
-                options.forEach { (value, label) ->
-                    Row(
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .clickable {
+            Box(
+                modifier =
+                    Modifier
+                        .heightIn(max = 360.dp)
+                        .fillMaxWidth()
+                        .onSizeChanged { viewportHeightPx = it.height },
+            ) {
+                Column(
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .verticalScroll(scrollState)
+                            .padding(end = if (showScrollIndicator) 12.dp else 0.dp),
+                ) {
+                    options.forEach { (value, label) ->
+                        Row(
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        onSelected(value)
+                                        onDismiss()
+                                    }
+                                    .padding(vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(
+                                selected = value == selected,
+                                onClick = {
                                     onSelected(value)
                                     onDismiss()
-                                }
-                                .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                                },
+                            )
+                            Text(
+                                text = label,
+                                modifier = Modifier.padding(start = 12.dp),
+                                style = MaterialTheme.typography.bodyLarge,
+                            )
+                        }
+                    }
+                }
+
+                if (showScrollIndicator && scrollState.maxValue > 0 && viewportHeightPx > 0) {
+                    val density = LocalDensity.current
+                    val viewport = viewportHeightPx.toFloat()
+                    val content = viewport + scrollState.maxValue.toFloat()
+                    val minThumbPx = with(density) { 20.dp.toPx() }
+                    val thumbHeightPx =
+                        (viewport * (viewport / content)).coerceIn(minThumbPx, viewport)
+                    val trackTravelPx = (viewport - thumbHeightPx).coerceAtLeast(0f)
+                    val thumbOffsetPx =
+                        if (scrollState.maxValue == 0) {
+                            0f
+                        } else {
+                            (scrollState.value.toFloat() / scrollState.maxValue.toFloat()) * trackTravelPx
+                        }
+                    val thumbHeightDp = with(density) { thumbHeightPx.toDp() }
+                    val thumbOffsetY = with(density) { thumbOffsetPx.toDp().roundToPx() }
+
+                    Box(
+                        modifier =
+                            Modifier
+                                .align(Alignment.CenterEnd)
+                                .fillMaxHeight()
+                                .padding(end = 2.dp)
+                                .width(4.dp)
+                                .clip(CircleShape)
+                                .alpha(0.5f),
                     ) {
-                        RadioButton(
-                            selected = value == selected,
-                            onClick = {
-                                onSelected(value)
-                                onDismiss()
-                            },
-                        )
-                        Text(
-                            text = label,
-                            modifier = Modifier.padding(start = 12.dp),
-                            style = MaterialTheme.typography.bodyLarge,
-                        )
+                        Surface(
+                            modifier =
+                                Modifier
+                                    .matchParentSize()
+                                    .clip(CircleShape),
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f),
+                            tonalElevation = 0.dp,
+                        ) {}
+                        Box(
+                            modifier =
+                                Modifier
+                                    .matchParentSize()
+                                    .offset { IntOffset(x = 0, y = thumbOffsetY) },
+                        ) {
+                            Surface(
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .height(thumbHeightDp),
+                                shape = CircleShape,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                                tonalElevation = 0.dp,
+                            ) {}
+                        }
                     }
                 }
             }

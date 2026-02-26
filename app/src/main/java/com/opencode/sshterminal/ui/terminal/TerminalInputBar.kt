@@ -57,12 +57,14 @@ import com.opencode.sshterminal.data.parseTerminalShortcutLayout
 
 @Composable
 @Suppress("LongParameterList", "LongMethod")
-fun TerminalInputBar(
+internal fun TerminalInputBar(
+    controller: TerminalInputController,
+    inputMode: TerminalInputMode,
+    onToggleInputMode: () -> Unit,
     onSendBytes: (ByteArray) -> Unit,
     onMenuClick: (() -> Unit)? = null,
     onSnippetClick: (() -> Unit)? = null,
     onHistoryClick: (() -> Unit)? = null,
-    onSubmitCommand: (String) -> Unit = {},
     onPageScroll: ((Int) -> Unit)? = null,
     isHapticFeedbackEnabled: Boolean = true,
     shortcutLayout: String,
@@ -71,7 +73,6 @@ fun TerminalInputBar(
     focusSignal: Int = 0,
     modifier: Modifier = Modifier,
 ) {
-    val controller = rememberTerminalInputController(onSendBytes, onSubmitCommand)
     val hapticFeedback = LocalHapticFeedback.current
     val onKeyTap =
         remember(hapticFeedback, isHapticFeedbackEnabled) {
@@ -152,14 +153,31 @@ fun TerminalInputBar(
                     shortcutLayout = shortcutLayout,
                 )
             }
-            TerminalTextInputRow(
-                focusSignal = focusSignal,
-                textFieldValue = controller.textFieldValue,
-                onValueChange = controller::onTextFieldValueChange,
-                onSubmit = controller::submitInput,
-                onHardwareKeyEvent = onHardwareKeyEvent,
-                onKeyTap = onKeyTap,
-            )
+            when (inputMode) {
+                TerminalInputMode.TEXT_BAR -> {
+                    TerminalTextInputRow(
+                        focusSignal = focusSignal,
+                        textFieldValue = controller.textFieldValue,
+                        onValueChange = controller::onTextFieldValueChange,
+                        onSubmit = controller::submitInput,
+                        onHardwareKeyEvent = onHardwareKeyEvent,
+                        onKeyTap = onKeyTap,
+                    )
+                    TerminalInputModeToggleRow(
+                        label = stringResource(R.string.terminal_input_mode_direct),
+                        onToggle = onToggleInputMode,
+                        onKeyTap = onKeyTap,
+                    )
+                }
+
+                TerminalInputMode.DIRECT -> {
+                    TerminalInputModeToggleRow(
+                        label = stringResource(R.string.terminal_input_mode_text_bar),
+                        onToggle = onToggleInputMode,
+                        onKeyTap = onKeyTap,
+                    )
+                }
+            }
         }
     }
 }
@@ -279,6 +297,22 @@ private fun ShortcutLayoutChip(
             KeyChip("\u2192", onTap = onKeyTap) { actions.onShortcut(TerminalShortcut.ARROW_RIGHT) }
         }
 
+        TerminalShortcutLayoutItem.HOME -> {
+            KeyChip("Home", onTap = onKeyTap) { actions.onShortcut(TerminalShortcut.HOME) }
+        }
+
+        TerminalShortcutLayoutItem.END -> {
+            KeyChip("End", onTap = onKeyTap) { actions.onShortcut(TerminalShortcut.END) }
+        }
+
+        TerminalShortcutLayoutItem.INSERT -> {
+            KeyChip("Ins", onTap = onKeyTap) { actions.onShortcut(TerminalShortcut.INSERT) }
+        }
+
+        TerminalShortcutLayoutItem.DELETE -> {
+            KeyChip("Del", onTap = onKeyTap) { actions.onShortcut(TerminalShortcut.DELETE) }
+        }
+
         TerminalShortcutLayoutItem.BACKSPACE -> {
             KeyChip("\u232B", onTap = onKeyTap) { actions.onShortcut(TerminalShortcut.BACKSPACE) }
         }
@@ -289,6 +323,54 @@ private fun ShortcutLayoutChip(
 
         TerminalShortcutLayoutItem.PAGE_DOWN -> {
             KeyChip("PgDn", onTap = onKeyTap) { actions.onPageScroll?.invoke(-1) }
+        }
+
+        TerminalShortcutLayoutItem.F1 -> {
+            KeyChip("F1", onTap = onKeyTap) { actions.onShortcut(TerminalShortcut.F1) }
+        }
+
+        TerminalShortcutLayoutItem.F2 -> {
+            KeyChip("F2", onTap = onKeyTap) { actions.onShortcut(TerminalShortcut.F2) }
+        }
+
+        TerminalShortcutLayoutItem.F3 -> {
+            KeyChip("F3", onTap = onKeyTap) { actions.onShortcut(TerminalShortcut.F3) }
+        }
+
+        TerminalShortcutLayoutItem.F4 -> {
+            KeyChip("F4", onTap = onKeyTap) { actions.onShortcut(TerminalShortcut.F4) }
+        }
+
+        TerminalShortcutLayoutItem.F5 -> {
+            KeyChip("F5", onTap = onKeyTap) { actions.onShortcut(TerminalShortcut.F5) }
+        }
+
+        TerminalShortcutLayoutItem.F6 -> {
+            KeyChip("F6", onTap = onKeyTap) { actions.onShortcut(TerminalShortcut.F6) }
+        }
+
+        TerminalShortcutLayoutItem.F7 -> {
+            KeyChip("F7", onTap = onKeyTap) { actions.onShortcut(TerminalShortcut.F7) }
+        }
+
+        TerminalShortcutLayoutItem.F8 -> {
+            KeyChip("F8", onTap = onKeyTap) { actions.onShortcut(TerminalShortcut.F8) }
+        }
+
+        TerminalShortcutLayoutItem.F9 -> {
+            KeyChip("F9", onTap = onKeyTap) { actions.onShortcut(TerminalShortcut.F9) }
+        }
+
+        TerminalShortcutLayoutItem.F10 -> {
+            KeyChip("F10", onTap = onKeyTap) { actions.onShortcut(TerminalShortcut.F10) }
+        }
+
+        TerminalShortcutLayoutItem.F11 -> {
+            KeyChip("F11", onTap = onKeyTap) { actions.onShortcut(TerminalShortcut.F11) }
+        }
+
+        TerminalShortcutLayoutItem.F12 -> {
+            KeyChip("F12", onTap = onKeyTap) { actions.onShortcut(TerminalShortcut.F12) }
         }
 
         TerminalShortcutLayoutItem.CTRL_C -> {
@@ -313,7 +395,7 @@ private fun ShortcutLayoutChip(
 }
 
 @Suppress("CyclomaticComplexMethod", "LongMethod")
-private fun dispatchHardwareKeyAction(
+internal fun dispatchHardwareKeyAction(
     action: TerminalHardwareKeyAction,
     controller: TerminalInputController,
     onPageScroll: ((Int) -> Unit)?,
@@ -445,6 +527,23 @@ private fun TerminalTextInputRow(
         )
 
         KeyChip("\u23CE", onTap = onKeyTap, onClick = onSubmit)
+    }
+}
+
+@Composable
+private fun TerminalInputModeToggleRow(
+    label: String,
+    onToggle: () -> Unit,
+    onKeyTap: () -> Unit,
+) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(vertical = 1.dp),
+        horizontalArrangement = Arrangement.Start,
+    ) {
+        KeyChip(label = label, onTap = onKeyTap, onClick = onToggle)
     }
 }
 

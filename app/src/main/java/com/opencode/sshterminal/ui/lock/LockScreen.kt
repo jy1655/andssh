@@ -15,7 +15,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -26,6 +26,9 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.opencode.sshterminal.R
 
 @Suppress("LongParameterList")
@@ -33,6 +36,7 @@ import com.opencode.sshterminal.R
 fun LockScreen(
     isFirstSetup: Boolean,
     error: String?,
+    isBiometricEnabled: Boolean,
     canUseBiometric: Boolean,
     onUnlock: (String) -> Unit,
     onSetupPassword: (String) -> Unit,
@@ -54,6 +58,7 @@ fun LockScreen(
         } else {
             UnlockContent(
                 error = error,
+                shouldAutoTriggerBiometric = isBiometricEnabled,
                 canUseBiometric = canUseBiometric,
                 onUnlock = onUnlock,
                 onUseBiometric = onUseBiometric,
@@ -67,6 +72,7 @@ fun LockScreen(
 @Composable
 private fun UnlockContent(
     error: String?,
+    shouldAutoTriggerBiometric: Boolean,
     canUseBiometric: Boolean,
     onUnlock: (String) -> Unit,
     onUseBiometric: () -> Unit,
@@ -74,11 +80,21 @@ private fun UnlockContent(
 ) {
     var password by remember { mutableStateOf("") }
     val canUnlock = password.isNotBlank()
+    val lifecycleOwner = LocalLifecycleOwner.current
 
-    LaunchedEffect(canUseBiometric) {
-        if (canUseBiometric) {
+    DisposableEffect(lifecycleOwner, shouldAutoTriggerBiometric) {
+        val observer =
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME && shouldAutoTriggerBiometric) {
+                    onUseBiometric()
+                }
+            }
+        val lifecycle = lifecycleOwner.lifecycle
+        lifecycle.addObserver(observer)
+        if (shouldAutoTriggerBiometric && lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED)) {
             onUseBiometric()
         }
+        onDispose { lifecycle.removeObserver(observer) }
     }
 
     Column(

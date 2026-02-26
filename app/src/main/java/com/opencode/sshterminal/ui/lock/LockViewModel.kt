@@ -40,6 +40,7 @@ class LockViewModel
 
         private val _error = MutableStateFlow<String?>(null)
         val error: StateFlow<String?> = _error
+        private var biometricPromptInProgress = false
 
         private val biometricAvailable =
             BiometricManager
@@ -133,6 +134,9 @@ class LockViewModel
 
         @Suppress("ReturnCount")
         fun triggerBiometric(activity: FragmentActivity) {
+            if (biometricPromptInProgress) {
+                return
+            }
             if (!canUseBiometric.value && !isBiometricEnabled.value) {
                 return
             }
@@ -155,6 +159,7 @@ class LockViewModel
                     executor,
                     object : BiometricPrompt.AuthenticationCallback() {
                         override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                            biometricPromptInProgress = false
                             if (biometricBoundKeyManager.verifyUnlock(result.cryptoObject?.cipher)) {
                                 _error.value = null
                                 _isLocked.value = false
@@ -167,6 +172,7 @@ class LockViewModel
                             errorCode: Int,
                             errString: CharSequence,
                         ) {
+                            biometricPromptInProgress = false
                             if (shouldDisplayBiometricError(errorCode)) {
                                 _error.value = errString.toString()
                             }
@@ -183,10 +189,16 @@ class LockViewModel
                     .setNegativeButtonText(activity.getString(R.string.common_cancel))
                     .build()
 
-            prompt.authenticate(
-                promptInfo,
-                BiometricPrompt.CryptoObject(cipher),
-            )
+            biometricPromptInProgress = true
+            runCatching {
+                prompt.authenticate(
+                    promptInfo,
+                    BiometricPrompt.CryptoObject(cipher),
+                )
+            }.onFailure {
+                biometricPromptInProgress = false
+                _error.value = it.message ?: ERROR_BIOMETRIC_KEY_UNAVAILABLE
+            }
         }
 
         fun clearError() {

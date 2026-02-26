@@ -92,12 +92,14 @@ class MainActivity : AppCompatActivity() {
                 val isLocked by lockViewModel.isLocked.collectAsState()
                 val isFirstSetup by lockViewModel.isFirstSetup.collectAsState()
                 val error by lockViewModel.error.collectAsState()
+                val isBiometricEnabled by lockViewModel.isBiometricEnabled.collectAsState()
                 val canUseBiometric by lockViewModel.canUseBiometric.collectAsState()
 
                 if (isLocked || isFirstSetup) {
                     LockScreen(
                         isFirstSetup = isFirstSetup,
                         error = error,
+                        isBiometricEnabled = isBiometricEnabled,
                         canUseBiometric = canUseBiometric,
                         onUnlock = lockViewModel::unlock,
                         onSetupPassword = lockViewModel::setupPassword,

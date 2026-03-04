@@ -23,7 +23,6 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.compose.rememberNavController
 import com.opencode.sshterminal.data.SettingsRepository
 import com.opencode.sshterminal.navigation.SSHNavHost
-import com.opencode.sshterminal.security.U2fActivityBridge
 import com.opencode.sshterminal.session.SessionManager
 import com.opencode.sshterminal.ui.lock.LockScreen
 import com.opencode.sshterminal.ui.lock.LockViewModel
@@ -39,9 +38,6 @@ class MainActivity : AppCompatActivity() {
 
     @Inject
     lateinit var sessionManager: SessionManager
-
-    @Inject
-    lateinit var u2fActivityBridge: U2fActivityBridge
 
     private var networkCallbackRegistered = false
     private val networkCallback =
@@ -118,28 +114,6 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         unregisterNetworkMonitoring()
         super.onDestroy()
-    }
-
-    override fun onResume() {
-        super.onResume()
-        u2fActivityBridge.setForegroundActivity(this)
-    }
-
-    override fun onPause() {
-        u2fActivityBridge.setForegroundActivity(null)
-        super.onPause()
-    }
-
-    @Suppress("DEPRECATION")
-    override fun onActivityResult(
-        requestCode: Int,
-        resultCode: Int,
-        data: android.content.Intent?,
-    ) {
-        if (u2fActivityBridge.onActivityResult(requestCode, resultCode, data)) {
-            return
-        }
-        super.onActivityResult(requestCode, resultCode, data)
     }
 
     private fun requestNotificationPermissionIfNeeded() {

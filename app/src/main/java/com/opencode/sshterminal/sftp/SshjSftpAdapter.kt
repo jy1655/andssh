@@ -1,6 +1,5 @@
 package com.opencode.sshterminal.sftp
 
-import com.opencode.sshterminal.security.U2fSecurityKeyManager
 import com.opencode.sshterminal.session.ConnectRequest
 import com.opencode.sshterminal.session.HostKeyPolicy
 import com.opencode.sshterminal.ssh.authenticate
@@ -20,9 +19,7 @@ import java.io.OutputStream
 import java.security.PublicKey
 import java.util.EnumSet
 
-class SshjSftpAdapter(
-    private val u2fSecurityKeyManager: U2fSecurityKeyManager,
-) : SftpChannelAdapter {
+class SshjSftpAdapter : SftpChannelAdapter {
     private var ssh: SSHClient? = null
     private var sftp: SFTPClient? = null
 
@@ -36,7 +33,7 @@ class SshjSftpAdapter(
             var success = false
             try {
                 client.connect(request.host, request.port)
-                client.authenticate(request, u2fSecurityKeyManager)
+                client.authenticate(request)
                 verifier?.persistAcceptedHostKeyIfNeeded()
                 ssh = client
                 sftp = client.newSFTPClient()

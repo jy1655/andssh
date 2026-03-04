@@ -1,4 +1,5 @@
 package com.opencode.sshterminal.ui.connection
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -548,14 +549,9 @@ private data class ConnectionDraft(
     val privateKeyPath: String = "",
     val certificatePath: String = "",
     val privateKeyPassphrase: String = "",
-    val securityKeyApplication: String = DEFAULT_SECURITY_KEY_APPLICATION,
-    val securityKeyHandleBase64: String = "",
-    val securityKeyPublicKeyBase64: String = "",
     val proxyJumpIdentityIds: Map<String, String> = emptyMap(),
     val portForwards: List<PortForwardRule> = emptyList(),
 )
-
-private const val DEFAULT_SECURITY_KEY_APPLICATION = ""
 
 private fun ConnectionProfile?.toDraft(): ConnectionDraft =
     ConnectionDraft(
@@ -577,9 +573,6 @@ private fun ConnectionProfile?.toDraft(): ConnectionDraft =
         privateKeyPath = this?.privateKeyPath.orEmpty(),
         certificatePath = this?.certificatePath.orEmpty(),
         privateKeyPassphrase = this?.privateKeyPassphrase.orEmpty(),
-        securityKeyApplication = this?.securityKeyApplication ?: DEFAULT_SECURITY_KEY_APPLICATION,
-        securityKeyHandleBase64 = this?.securityKeyHandleBase64.orEmpty(),
-        securityKeyPublicKeyBase64 = this?.securityKeyPublicKeyBase64.orEmpty(),
         proxyJumpIdentityIds = this?.proxyJumpIdentityIds.orEmpty(),
         portForwards = this?.portForwards.orEmpty(),
     )
@@ -600,11 +593,6 @@ private fun ConnectionDraft.toProfileOrNull(
     val parsedTags = parseConnectionTagsInput(tagsInput)
     val parsedPortKnockSequence = parsePortKnockSequenceInput(portKnockSequenceInput)
     val parsedPortKnockDelayMillis = portKnockDelayMillis.toIntOrNull()?.coerceIn(50, 5_000) ?: 250
-    val normalizedSecurityKeyApplication = securityKeyApplication.trim()
-    val securityKeyConfigured =
-        securityKeyHandleBase64.isNotBlank() &&
-            securityKeyPublicKeyBase64.isNotBlank() &&
-            normalizedSecurityKeyApplication.isNotBlank()
     return ConnectionProfile(
         id = initial?.id ?: UUID.randomUUID().toString(),
         name = name.ifBlank { "$username@$host" },
@@ -625,25 +613,6 @@ private fun ConnectionDraft.toProfileOrNull(
         privateKeyPath = privateKeyPath.ifBlank { null },
         certificatePath = certificatePath.ifBlank { null }?.takeIf { privateKeyPath.isNotBlank() },
         privateKeyPassphrase = privateKeyPassphrase.ifBlank { null },
-        securityKeyApplication =
-            if (securityKeyConfigured) {
-                normalizedSecurityKeyApplication
-            } else {
-                null
-            },
-        securityKeyHandleBase64 =
-            if (securityKeyConfigured) {
-                securityKeyHandleBase64.trim()
-            } else {
-                null
-            },
-        securityKeyPublicKeyBase64 =
-            if (securityKeyConfigured) {
-                securityKeyPublicKeyBase64.trim()
-            } else {
-                null
-            },
-        securityKeyFlags = initial?.securityKeyFlags ?: 1,
         identityId = selectedIdentityId,
         proxyJumpIdentityIds = filteredProxyJumpIdentityIds,
         portForwards = portForwards,

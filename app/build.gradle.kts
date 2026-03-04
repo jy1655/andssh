@@ -257,7 +257,6 @@ dependencies {
     // Security
     implementation("androidx.security:security-crypto:1.0.0")
     implementation("androidx.biometric:biometric:1.1.0")
-    implementation("com.google.android.gms:play-services-fido:21.1.0")
 
     // SSH
     implementation("com.hierynomus:sshj:0.40.0")

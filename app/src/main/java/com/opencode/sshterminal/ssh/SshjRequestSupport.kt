@@ -1,10 +1,8 @@
 package com.opencode.sshterminal.ssh
 
 import com.hierynomus.sshj.common.KeyDecryptionFailedException
-import com.opencode.sshterminal.security.U2fSecurityKeyManager
 import com.opencode.sshterminal.security.withZeroizedChars
 import com.opencode.sshterminal.session.ConnectRequest
-import kotlinx.coroutines.runBlocking
 import net.schmizz.sshj.SSHClient
 import net.schmizz.sshj.common.Buffer
 import net.schmizz.sshj.common.KeyType
@@ -17,10 +15,8 @@ import java.util.Base64
 
 internal fun SSHClient.authenticate(
     request: ConnectRequest,
-    u2fSecurityKeyManager: U2fSecurityKeyManager,
 ) {
     when {
-        request.hasHardwareSecurityKey() -> authenticateWithHardwareSecurityKey(request, u2fSecurityKeyManager)
         !request.password.isNullOrEmpty() ->
             withZeroizedChars(request.password) { passwordChars ->
                 authPassword(request.username, requireNotNull(passwordChars))
@@ -40,33 +36,6 @@ internal fun SSHClient.authenticate(
         }
         else -> error("Either password or privateKeyPath must be provided")
     }
-}
-
-private fun SSHClient.authenticateWithHardwareSecurityKey(
-    request: ConnectRequest,
-    u2fSecurityKeyManager: U2fSecurityKeyManager,
-) {
-    val application = requireNotNull(request.securityKeyApplication)
-    val keyHandleBase64 = requireNotNull(request.securityKeyHandleBase64)
-    val publicKey = Base64.getDecoder().decode(requireNotNull(request.securityKeyPublicKeyBase64))
-    auth(
-        request.username,
-        U2fSecurityKeyAuthMethod(
-            publicKeyUncompressed = publicKey,
-            application = application,
-            signMessage = { message ->
-                runBlocking {
-                    runCatching {
-                        u2fSecurityKeyManager.signForSsh(
-                            application = application,
-                            keyHandleBase64 = keyHandleBase64,
-                            message = message,
-                        )
-                    }.getOrNull()
-                }
-            },
-        ),
-    )
 }
 
 private fun SSHClient.loadKeyProviderForAuth(
@@ -100,12 +69,6 @@ private fun SSHClient.loadKeyProviderForAuth(
             )
         }
     }
-}
-
-private fun ConnectRequest.hasHardwareSecurityKey(): Boolean {
-    return !securityKeyApplication.isNullOrBlank() &&
-        !securityKeyHandleBase64.isNullOrBlank() &&
-        !securityKeyPublicKeyBase64.isNullOrBlank()
 }
 
 private inline fun <reified T : Throwable> Throwable.hasCause(): Boolean {

@@ -25,6 +25,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -146,9 +147,7 @@ internal fun ConnectionPrivateKeyField(
     onPickCertificate: () -> Unit,
     onClearPrivateKey: () -> Unit,
     onClearCertificate: () -> Unit,
-    onGeneratePrivateKey: (SshKeyAlgorithm) -> Unit,
 ) {
-    var showGenerateDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
     OutlinedTextField(
@@ -158,7 +157,9 @@ internal fun ConnectionPrivateKeyField(
         placeholder = { Text(stringResource(R.string.connection_private_key_placeholder)) },
         readOnly = true,
         singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onPickPrivateKey),
     )
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -168,15 +169,20 @@ internal fun ConnectionPrivateKeyField(
         OutlinedButton(onClick = onPickPrivateKey) {
             Text(stringResource(R.string.connection_pick_private_key))
         }
-        OutlinedButton(onClick = { showGenerateDialog = true }) {
-            Text(stringResource(R.string.connection_generate_private_key))
-        }
         if (privateKeyPath.isNotBlank()) {
             TextButton(onClick = onClearPrivateKey) {
                 Text(stringResource(R.string.connection_clear_private_key))
             }
         }
     }
+    OutlinedTextField(
+        value = privateKeyPassphrase,
+        onValueChange = onPrivateKeyPassphraseChange,
+        label = { Text(stringResource(R.string.connection_label_private_key_passphrase_optional)) },
+        singleLine = true,
+        visualTransformation = PasswordVisualTransformation(),
+        modifier = Modifier.fillMaxWidth(),
+    )
     OutlinedTextField(
         value = certificatePath,
         onValueChange = {},
@@ -239,24 +245,6 @@ internal fun ConnectionPrivateKeyField(
                 Text(stringResource(R.string.connection_share_public_key))
             }
         }
-    }
-    OutlinedTextField(
-        value = privateKeyPassphrase,
-        onValueChange = onPrivateKeyPassphraseChange,
-        label = { Text(stringResource(R.string.connection_label_private_key_passphrase_optional)) },
-        singleLine = true,
-        visualTransformation = PasswordVisualTransformation(),
-        modifier = Modifier.fillMaxWidth(),
-    )
-
-    if (showGenerateDialog) {
-        GeneratePrivateKeyDialog(
-            onDismiss = { showGenerateDialog = false },
-            onSelectAlgorithm = { algorithm ->
-                showGenerateDialog = false
-                onGeneratePrivateKey(algorithm)
-            },
-        )
     }
 }
 

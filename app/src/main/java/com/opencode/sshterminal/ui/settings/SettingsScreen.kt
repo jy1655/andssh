@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -60,11 +61,15 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.opencode.sshterminal.BuildConfig
 import com.opencode.sshterminal.R
+import com.opencode.sshterminal.data.BackupPasswordRequiredException
+import com.opencode.sshterminal.data.BackupV1IncompatibleException
 import com.opencode.sshterminal.data.DEFAULT_TERMINAL_SHORTCUT_LAYOUT_ITEMS
 import com.opencode.sshterminal.data.SettingsRepository
 import com.opencode.sshterminal.data.TerminalShortcutLayoutItem
@@ -82,6 +87,8 @@ import com.opencode.sshterminal.ui.theme.ThemePreset
 import com.termux.terminal.TerminalEmulator
 import kotlinx.coroutines.launch
 
+private const val MIN_BACKUP_PASSWORD_LENGTH = 8
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -90,8 +97,6 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsState()
-    val onExportBackup = rememberBackupExportAction(viewModel)
-    val onImportBackup = rememberBackupImportAction(viewModel)
 
     Scaffold(
         topBar = {
@@ -132,9 +137,8 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(24.dp))
             AdvancedSection(
                 state = state,
+                viewModel = viewModel,
                 onNavigateToCrashLogs = onNavigateToCrashLogs,
-                onExportBackup = onExportBackup,
-                onImportBackup = onImportBackup,
             )
             Spacer(modifier = Modifier.height(24.dp))
             AboutSection()
@@ -144,50 +148,96 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun rememberBackupExportAction(viewModel: SettingsViewModel): () -> Unit {
+private fun rememberBackupExportAction(
+    viewModel: SettingsViewModel,
+    onShowPasswordDialog: () -> Unit,
+): BackupExportAction {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var pendingPassword by remember { mutableStateOf<CharArray?>(null) }
     val launcher =
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.CreateDocument("application/json"),
         ) { uri ->
-            if (uri == null) return@rememberLauncherForActivityResult
+            val password = pendingPassword
+            pendingPassword = null
+            if (uri == null || password == null) {
+                password?.fill('\u0000')
+                return@rememberLauncherForActivityResult
+            }
             scope.launch {
-                runCatching {
-                    val backupJson = viewModel.exportEncryptedBackup()
-                    val output =
-                        context.contentResolver.openOutputStream(uri)
-                            ?: error("Cannot open backup destination")
-                    output.bufferedWriter(Charsets.UTF_8).use { writer ->
-                        writer.write(backupJson)
+                try {
+                    runCatching {
+                        val backupJson = viewModel.exportPasswordEncryptedBackup(password)
+                        val output =
+                            context.contentResolver.openOutputStream(uri)
+                                ?: error("Cannot open backup destination")
+                        output.bufferedWriter(Charsets.UTF_8).use { writer ->
+                            writer.write(backupJson)
+                        }
+                    }.onSuccess {
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.settings_backup_export_success),
+                            Toast.LENGTH_SHORT,
+                        ).show()
+                    }.onFailure { error ->
+                        Toast.makeText(
+                            context,
+                            context.getString(
+                                R.string.settings_backup_export_failed,
+                                error.message ?: "unknown error",
+                            ),
+                            Toast.LENGTH_LONG,
+                        ).show()
                     }
-                }.onSuccess {
-                    Toast.makeText(
-                        context,
-                        context.getString(R.string.settings_backup_export_success),
-                        Toast.LENGTH_SHORT,
-                    ).show()
-                }.onFailure { error ->
-                    Toast.makeText(
-                        context,
-                        context.getString(
-                            R.string.settings_backup_export_failed,
-                            error.message ?: "unknown error",
-                        ),
-                        Toast.LENGTH_LONG,
-                    ).show()
+                } finally {
+                    password.fill('\u0000')
                 }
             }
         }
-    return {
-        launcher.launch("andssh-backup-${System.currentTimeMillis()}.json")
-    }
+    return BackupExportAction(
+        requestExport = onShowPasswordDialog,
+        submitPassword = { password ->
+            pendingPassword?.fill('\u0000')
+            pendingPassword = password.copyOf()
+            launcher.launch("andssh-backup-${System.currentTimeMillis()}.json")
+        },
+    )
 }
 
 @Composable
-private fun rememberBackupImportAction(viewModel: SettingsViewModel): () -> Unit {
+private fun rememberBackupImportAction(
+    viewModel: SettingsViewModel,
+    onShowPasswordDialog: () -> Unit,
+    onShowV1IncompatibleDialog: () -> Unit,
+): BackupImportAction {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    var pendingBackupJson by remember { mutableStateOf<String?>(null) }
+
+    val showImportSuccess: (Int, Int) -> Unit = { profileCount, identityCount ->
+        Toast.makeText(
+            context,
+            context.getString(
+                R.string.settings_backup_import_success,
+                profileCount,
+                identityCount,
+            ),
+            Toast.LENGTH_SHORT,
+        ).show()
+    }
+    val showImportFailed: (Throwable) -> Unit = { error ->
+        Toast.makeText(
+            context,
+            context.getString(
+                R.string.settings_backup_import_failed,
+                error.message ?: "unknown error",
+            ),
+            Toast.LENGTH_LONG,
+        ).show()
+    }
+
     val launcher =
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.OpenDocument(),
@@ -198,37 +248,77 @@ private fun rememberBackupImportAction(viewModel: SettingsViewModel): () -> Unit
                     val input =
                         context.contentResolver.openInputStream(uri)
                             ?: error("Cannot open selected backup")
-                    val backupJson =
-                        input.bufferedReader(Charsets.UTF_8).use { reader ->
-                            reader.readText()
+                    input.bufferedReader(Charsets.UTF_8).use { reader ->
+                        reader.readText()
+                    }
+                }.onSuccess { backupJson ->
+                    runCatching {
+                        viewModel.importBackup(json = backupJson, password = null)
+                    }.onSuccess { summary ->
+                        showImportSuccess(summary.profileCount, summary.identityCount)
+                    }.onFailure { error ->
+                        when (error) {
+                            is BackupPasswordRequiredException -> {
+                                pendingBackupJson = backupJson
+                                onShowPasswordDialog()
+                            }
+
+                            is BackupV1IncompatibleException -> onShowV1IncompatibleDialog()
+                            else -> showImportFailed(error)
                         }
-                    viewModel.importEncryptedBackup(backupJson)
-                }.onSuccess { summary ->
-                    Toast.makeText(
-                        context,
-                        context.getString(
-                            R.string.settings_backup_import_success,
-                            summary.profileCount,
-                            summary.identityCount,
-                        ),
-                        Toast.LENGTH_SHORT,
-                    ).show()
+                    }
                 }.onFailure { error ->
-                    Toast.makeText(
-                        context,
-                        context.getString(
-                            R.string.settings_backup_import_failed,
-                            error.message ?: "unknown error",
-                        ),
-                        Toast.LENGTH_LONG,
-                    ).show()
+                    showImportFailed(error)
                 }
             }
         }
-    return {
-        launcher.launch(arrayOf("application/json", "text/plain", "*/*"))
-    }
+    return BackupImportAction(
+        requestImport = {
+            launcher.launch(arrayOf("application/json", "text/plain", "*/*"))
+        },
+        submitPassword = { password ->
+            val backupJson = pendingBackupJson
+            if (backupJson == null) {
+                password.fill('\u0000')
+            } else {
+                pendingBackupJson = null
+                scope.launch {
+                    try {
+                        runCatching {
+                            viewModel.importBackup(json = backupJson, password = password)
+                        }.onSuccess { summary ->
+                            showImportSuccess(summary.profileCount, summary.identityCount)
+                        }.onFailure { error ->
+                            when (error) {
+                                is BackupV1IncompatibleException -> onShowV1IncompatibleDialog()
+                                else ->
+                                    Toast.makeText(
+                                        context,
+                                        context.getString(R.string.settings_backup_wrong_password),
+                                        Toast.LENGTH_LONG,
+                                    ).show()
+                            }
+                        }
+                    } finally {
+                        password.fill('\u0000')
+                    }
+                }
+            }
+        },
+        clearPending = { pendingBackupJson = null },
+    )
 }
+
+private data class BackupExportAction(
+    val requestExport: () -> Unit,
+    val submitPassword: (CharArray) -> Unit,
+)
+
+private data class BackupImportAction(
+    val requestImport: () -> Unit,
+    val submitPassword: (CharArray) -> Unit,
+    val clearPending: () -> Unit,
+)
 
 @Composable
 private fun SectionHeader(title: String) {
@@ -884,23 +974,41 @@ private fun moveShortcutLayoutItem(
 @Composable
 private fun AdvancedSection(
     state: SettingsUiState,
+    viewModel: SettingsViewModel,
     onNavigateToCrashLogs: () -> Unit,
-    onExportBackup: () -> Unit,
-    onImportBackup: () -> Unit,
 ) {
+    var showExportPasswordDialog by remember { mutableStateOf(false) }
+    var showImportPasswordDialog by remember { mutableStateOf(false) }
+    var showV1IncompatibleDialog by remember { mutableStateOf(false) }
+
+    val backupExportAction =
+        rememberBackupExportAction(
+            viewModel = viewModel,
+            onShowPasswordDialog = { showExportPasswordDialog = true },
+        )
+    val backupImportAction =
+        rememberBackupImportAction(
+            viewModel = viewModel,
+            onShowPasswordDialog = { showImportPasswordDialog = true },
+            onShowV1IncompatibleDialog = {
+                showImportPasswordDialog = false
+                showV1IncompatibleDialog = true
+            },
+        )
+
     SectionHeader(stringResource(R.string.settings_advanced_title))
     Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
         Column {
             SettingsValueRow(
                 title = stringResource(R.string.settings_backup_export),
                 value = stringResource(R.string.settings_backup_value_encrypted),
-                onClick = onExportBackup,
+                onClick = backupExportAction.requestExport,
             )
             SettingsDivider()
             SettingsValueRow(
                 title = stringResource(R.string.settings_backup_import),
                 value = stringResource(R.string.settings_backup_value_encrypted),
-                onClick = onImportBackup,
+                onClick = backupImportAction.requestImport,
             )
             SettingsDivider()
             SettingsValueRow(
@@ -910,6 +1018,183 @@ private fun AdvancedSection(
             )
         }
     }
+
+    BackupPasswordExportDialog(
+        show = showExportPasswordDialog,
+        onDismiss = { showExportPasswordDialog = false },
+        onConfirm = { password ->
+            showExportPasswordDialog = false
+            backupExportAction.submitPassword(password)
+        },
+    )
+    BackupPasswordImportDialog(
+        show = showImportPasswordDialog,
+        onDismiss = {
+            showImportPasswordDialog = false
+            backupImportAction.clearPending()
+        },
+        onConfirm = { password ->
+            showImportPasswordDialog = false
+            backupImportAction.submitPassword(password)
+        },
+    )
+    BackupV1IncompatibleDialog(
+        show = showV1IncompatibleDialog,
+        onDismiss = { showV1IncompatibleDialog = false },
+    )
+}
+
+@Composable
+private fun BackupPasswordExportDialog(
+    show: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: (CharArray) -> Unit,
+) {
+    if (!show) {
+        return
+    }
+    var password by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+    val isPasswordTooShort = password.isNotEmpty() && password.length < MIN_BACKUP_PASSWORD_LENGTH
+    val isPasswordMismatch = confirmPassword.isNotEmpty() && password != confirmPassword
+    val canConfirm =
+        password.length >= MIN_BACKUP_PASSWORD_LENGTH &&
+            confirmPassword.isNotEmpty() &&
+            password == confirmPassword
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_backup_password_title)) },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(password.toCharArray()) },
+                enabled = canConfirm,
+            ) {
+                Text(stringResource(R.string.settings_backup_export))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.common_cancel))
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = stringResource(R.string.settings_backup_password_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text(stringResource(R.string.settings_backup_password_label)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    isError = isPasswordTooShort,
+                )
+                OutlinedTextField(
+                    value = confirmPassword,
+                    onValueChange = { confirmPassword = it },
+                    label = { Text(stringResource(R.string.settings_backup_password_confirm)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                    isError = isPasswordMismatch,
+                )
+                if (isPasswordTooShort) {
+                    Text(
+                        text = stringResource(R.string.settings_backup_password_too_short),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+                if (isPasswordMismatch) {
+                    Text(
+                        text = stringResource(R.string.settings_backup_password_mismatch),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+        },
+    )
+}
+
+@Composable
+private fun BackupPasswordImportDialog(
+    show: Boolean,
+    onDismiss: () -> Unit,
+    onConfirm: (CharArray) -> Unit,
+) {
+    if (!show) {
+        return
+    }
+    var password by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_backup_enter_password)) },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(password.toCharArray()) },
+                enabled = password.isNotEmpty(),
+            ) {
+                Text(stringResource(R.string.settings_backup_import))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.common_cancel))
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = stringResource(R.string.settings_backup_enter_password_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text(stringResource(R.string.settings_backup_password_label)) },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                )
+            }
+        },
+    )
+}
+
+@Composable
+private fun BackupV1IncompatibleDialog(
+    show: Boolean,
+    onDismiss: () -> Unit,
+) {
+    if (!show) {
+        return
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.settings_backup_v1_incompatible_title)) },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.common_cancel))
+            }
+        },
+        text = {
+            Text(
+                text = stringResource(R.string.settings_backup_v1_incompatible_message),
+                style = MaterialTheme.typography.bodyMedium,
+            )
+        },
+    )
 }
 
 @Composable

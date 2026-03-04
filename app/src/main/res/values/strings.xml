@@ -127,6 +127,8 @@
     <string name="quick_connect_title">Quick Connect</string>
     <string name="quick_connect_button">Connect</string>
     <string name="quick_connect_host_label">Host</string>
+    <string name="connection_error_host_required">Host is required</string>
+    <string name="connection_error_username_required">Username is required</string>
 
     <string name="terminal_new_tab">New tab</string>
     <string name="terminal_close_active_tab">Close active tab</string>
@@ -300,6 +302,17 @@
     <string name="settings_backup_export_failed">Backup export failed: %1$s</string>
     <string name="settings_backup_import_success">Imported %1$d connections, %2$d identities</string>
     <string name="settings_backup_import_failed">Backup import failed: %1$s</string>
+    <string name="settings_backup_password_title">Set Backup Password</string>
+    <string name="settings_backup_password_hint">This password will be required to restore the backup on any device.</string>
+    <string name="settings_backup_password_label">Password</string>
+    <string name="settings_backup_password_confirm">Confirm password</string>
+    <string name="settings_backup_password_mismatch">Passwords do not match</string>
+    <string name="settings_backup_password_too_short">Password must be at least 8 characters</string>
+    <string name="settings_backup_enter_password">Enter Backup Password</string>
+    <string name="settings_backup_enter_password_hint">Enter the password used when creating this backup.</string>
+    <string name="settings_backup_wrong_password">Incorrect password or corrupted backup</string>
+    <string name="settings_backup_v1_incompatible_title">Incompatible Backup</string>
+    <string name="settings_backup_v1_incompatible_message">This backup was encrypted with device-specific keys and cannot be restored on this device. Please create a new backup from the original device.</string>
     <string name="settings_timeout_30s">30 seconds</string>
     <string name="settings_timeout_1m">1 minute</string>
     <string name="settings_timeout_2m">2 minutes</string>

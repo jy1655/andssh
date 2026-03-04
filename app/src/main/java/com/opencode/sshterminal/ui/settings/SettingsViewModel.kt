@@ -295,12 +295,15 @@ class SettingsViewModel
             }
         }
 
-        suspend fun exportEncryptedBackup(): String {
-            return connectionBackupManager.exportEncryptedBackup()
+        suspend fun exportPasswordEncryptedBackup(password: CharArray): String {
+            return connectionBackupManager.exportPasswordEncryptedBackup(password)
         }
 
-        suspend fun importEncryptedBackup(backupJson: String): ConnectionBackupImportSummary {
-            return connectionBackupManager.importEncryptedBackup(backupJson)
+        suspend fun importBackup(
+            json: String,
+            password: CharArray?,
+        ): ConnectionBackupImportSummary {
+            return connectionBackupManager.importBackup(backupJson = json, password = password)
         }
 
         companion object {

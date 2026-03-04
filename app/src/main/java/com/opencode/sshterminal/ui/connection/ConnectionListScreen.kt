@@ -54,6 +54,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -770,6 +772,10 @@ private fun ConnectionBottomSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var draft by remember(initial) { mutableStateOf(initial.toDraft()) }
     var selectedIdentityId by remember(initial) { mutableStateOf(initial?.identityId) }
+    var hostError by remember { mutableStateOf(false) }
+    var usernameError by remember { mutableStateOf(false) }
+    val hostFocusRequester = remember { FocusRequester() }
+    val usernameFocusRequester = remember { FocusRequester() }
     val privateKeyPicker =
         rememberConnectionPrivateKeyPicker(
             onImported = { importedPath ->
@@ -780,12 +786,6 @@ private fun ConnectionBottomSheet(
         rememberConnectionCertificatePicker(
             onImported = { importedPath ->
                 draft = draft.copy(certificatePath = importedPath)
-            },
-        )
-    val privateKeyGenerator =
-        rememberConnectionPrivateKeyGenerator(
-            onGenerated = { generatedPath ->
-                draft = draft.copy(privateKeyPath = generatedPath, privateKeyPassphrase = "")
             },
         )
     val securityKeyEnrollEnabled = BuildConfig.ENABLE_SECURITY_KEY_ENROLL
@@ -829,6 +829,10 @@ private fun ConnectionBottomSheet(
                 draft = draft,
                 identities = identities,
                 selectedIdentityId = selectedIdentityId,
+                hostError = hostError,
+                usernameError = usernameError,
+                hostFocusRequester = hostFocusRequester,
+                usernameFocusRequester = usernameFocusRequester,
                 onSelectIdentity = { identity ->
                     selectedIdentityId = identity?.id
                     if (identity != null) {
@@ -842,14 +846,19 @@ private fun ConnectionBottomSheet(
                             )
                     }
                 },
-                onDraftChange = { draft = it },
+                onDraftChange = { newDraft ->
+                    draft = newDraft
+                    if (newDraft.host != draft.host) hostError = false
+                    if (newDraft.username != draft.username) usernameError = false
+                },
+                onHostChange = { hostError = false },
+                onUsernameChange = { usernameError = false },
                 onPickPrivateKey = privateKeyPicker,
                 onPickCertificate = certificatePicker,
                 onClearPrivateKey = {
                     draft = draft.copy(privateKeyPath = "", certificatePath = "", privateKeyPassphrase = "")
                 },
                 onClearCertificate = { draft = draft.copy(certificatePath = "") },
-                onGeneratePrivateKey = privateKeyGenerator,
                 onAddPortForwardRule = { rule ->
                     draft = draft.copy(portForwards = draft.portForwards + rule)
                 },
@@ -975,9 +984,19 @@ private fun ConnectionBottomSheet(
 
                 Button(
                     onClick = {
-                        draft.toProfileOrNull(initial, selectedIdentityId)?.let { profile ->
-                            draft = draft.clearSensitiveFields()
-                            onSave(profile)
+                        val isHostBlank = draft.host.isBlank()
+                        val isUsernameBlank = draft.username.isBlank()
+                        hostError = isHostBlank
+                        usernameError = isUsernameBlank
+                        if (isHostBlank) {
+                            hostFocusRequester.requestFocus()
+                        } else if (isUsernameBlank) {
+                            usernameFocusRequester.requestFocus()
+                        } else {
+                            draft.toProfileOrNull(initial, selectedIdentityId)?.let { profile ->
+                                draft = draft.clearSensitiveFields()
+                                onSave(profile)
+                            }
                         }
                     },
                     modifier = Modifier.weight(1f),
@@ -993,13 +1012,18 @@ private fun ConnectionFormFields(
     draft: ConnectionDraft,
     identities: List<ConnectionIdentity>,
     selectedIdentityId: String?,
+    hostError: Boolean,
+    usernameError: Boolean,
+    hostFocusRequester: FocusRequester,
+    usernameFocusRequester: FocusRequester,
     onSelectIdentity: (ConnectionIdentity?) -> Unit,
     onDraftChange: (ConnectionDraft) -> Unit,
+    onHostChange: () -> Unit,
+    onUsernameChange: () -> Unit,
     onPickPrivateKey: () -> Unit,
     onPickCertificate: () -> Unit,
     onClearPrivateKey: () -> Unit,
     onClearCertificate: () -> Unit,
-    onGeneratePrivateKey: (SshKeyAlgorithm) -> Unit,
     onAddPortForwardRule: (PortForwardRule) -> Unit,
     onUpdatePortForwardRuleAt: (Int, PortForwardRule) -> Unit,
     onMovePortForwardRule: (Int, Int) -> Unit,
@@ -1071,10 +1095,21 @@ private fun ConnectionFormFields(
     )
     OutlinedTextField(
         value = draft.host,
-        onValueChange = { onDraftChange(draft.copy(host = it)) },
+        onValueChange = {
+            onDraftChange(draft.copy(host = it))
+            onHostChange()
+        },
         label = { Text(stringResource(R.string.connection_label_host)) },
         singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
+        isError = hostError,
+        supportingText = if (hostError) {
+            { Text(stringResource(R.string.connection_error_host_required)) }
+        } else {
+            null
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .focusRequester(hostFocusRequester),
     )
     OutlinedTextField(
         value = draft.proxyJump,
@@ -1159,10 +1194,21 @@ private fun ConnectionFormFields(
     )
     OutlinedTextField(
         value = draft.username,
-        onValueChange = { onDraftChange(draft.copy(username = it)) },
+        onValueChange = {
+            onDraftChange(draft.copy(username = it))
+            onUsernameChange()
+        },
         label = { Text(stringResource(R.string.connection_label_username)) },
         singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
+        isError = usernameError,
+        supportingText = if (usernameError) {
+            { Text(stringResource(R.string.connection_error_username_required)) }
+        } else {
+            null
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .focusRequester(usernameFocusRequester),
     )
     OutlinedTextField(
         value = draft.password,
@@ -1181,7 +1227,6 @@ private fun ConnectionFormFields(
         onPickCertificate = onPickCertificate,
         onClearPrivateKey = onClearPrivateKey,
         onClearCertificate = onClearCertificate,
-        onGeneratePrivateKey = onGeneratePrivateKey,
     )
     ConnectionSecurityKeyField(
         application = draft.securityKeyApplication,

@@ -101,8 +101,8 @@ android {
         applicationId = "com.opencode.sshterminal"
         minSdk = 26
         targetSdk = 35
-        versionCode = ciVersionCode ?: 3
-        versionName = ciVersionName ?: "0.2.0"
+        versionCode = ciVersionCode ?: 5
+        versionName = ciVersionName ?: "0.2.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("boolean", "ENABLE_SECURITY_KEY_ENROLL", enableSecurityKeyEnroll.toString())

@@ -3,26 +3,31 @@ import java.util.Properties
 
 fun runCommand(vararg args: String): String? =
     try {
-        val process = ProcessBuilder(*args)
-            .directory(rootProject.projectDir)
-            .redirectErrorStream(true)
-            .start()
+        val process =
+            ProcessBuilder(*args)
+                .directory(rootProject.projectDir)
+                .redirectErrorStream(true)
+                .start()
         process.inputStream.bufferedReader().readText().trim().takeIf { it.isNotEmpty() }
     } catch (_: Exception) {
         null
     }
 
 // Git tag 기반 버전 자동 추출 (v0.2.2 형식)
-val gitVersionName: String? = runCommand("git", "describe", "--tags", "--abbrev=0")
-    ?.removePrefix("v")
-    ?.takeIf { it.matches(Regex("""\d+\.\d+\.\d+""")) }
+val gitVersionName: String? =
+    runCommand("git", "describe", "--tags", "--abbrev=0")
+        ?.removePrefix("v")
+        ?.takeIf { it.matches(Regex("""\d+\.\d+\.\d+""")) }
 
 // versionCode 계산: major*10000 + minor*100 + patch (예: 0.2.2 → 202)
-val gitVersionCode: Int? = gitVersionName?.split(".")?.let { parts ->
-    if (parts.size == 3) {
-        parts[0].toInt() * 10000 + parts[1].toInt() * 100 + parts[2].toInt()
-    } else null
-}
+val gitVersionCode: Int? =
+    gitVersionName?.split(".")?.let { parts ->
+        if (parts.size == 3) {
+            parts[0].toInt() * 10000 + parts[1].toInt() * 100 + parts[2].toInt()
+        } else {
+            null
+        }
+    }
 
 plugins {
     id("com.android.application")

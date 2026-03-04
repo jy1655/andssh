@@ -760,7 +760,7 @@ private fun ConnectionBottomSheet(
                                     draft.portForwards.toMutableList().also { rules ->
                                         rules.removeAt(index)
                                     },
-                        )
+                            )
                     }
                 },
                 onClearPortForwards = { draft = draft.copy(portForwards = emptyList()) },
@@ -852,14 +852,16 @@ private fun ConnectionFormFields(
         label = { Text(stringResource(R.string.connection_label_username)) },
         singleLine = true,
         isError = usernameError,
-        supportingText = if (usernameError) {
-            { Text(stringResource(R.string.connection_error_username_required)) }
-        } else {
-            null
-        },
-        modifier = Modifier
-            .fillMaxWidth()
-            .focusRequester(usernameFocusRequester),
+        supportingText =
+            if (usernameError) {
+                { Text(stringResource(R.string.connection_error_username_required)) }
+            } else {
+                null
+            },
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .focusRequester(usernameFocusRequester),
     )
     OutlinedTextField(
         value = draft.host,
@@ -870,14 +872,16 @@ private fun ConnectionFormFields(
         label = { Text(stringResource(R.string.connection_label_host)) },
         singleLine = true,
         isError = hostError,
-        supportingText = if (hostError) {
-            { Text(stringResource(R.string.connection_error_host_required)) }
-        } else {
-            null
-        },
-        modifier = Modifier
-            .fillMaxWidth()
-            .focusRequester(hostFocusRequester),
+        supportingText =
+            if (hostError) {
+                { Text(stringResource(R.string.connection_error_host_required)) }
+            } else {
+                null
+            },
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .focusRequester(hostFocusRequester),
     )
     OutlinedTextField(
         value = draft.port,

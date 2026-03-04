@@ -68,7 +68,7 @@ fun LockScreen(
     }
 }
 
-@Suppress("LongMethod")
+@Suppress("LongMethod", "LongParameterList")
 @Composable
 private fun UnlockContent(
     error: String?,

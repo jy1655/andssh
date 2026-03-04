@@ -19,6 +19,7 @@ class AutoLockManager
         private val authRepository: AuthRepository,
     ) : DefaultLifecycleObserver {
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+
         @Volatile
         private var appLockEnabled = false
 

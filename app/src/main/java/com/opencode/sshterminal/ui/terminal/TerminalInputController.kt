@@ -49,6 +49,7 @@ internal fun rememberTerminalInputController(
     return controller
 }
 
+@Suppress("TooManyFunctions")
 internal class TerminalInputController(
     private val onSendBytes: (ByteArray) -> Unit,
     private val onSubmitCommand: (String) -> Unit,
@@ -196,15 +197,15 @@ internal class TerminalInputController(
         newCommitted: String,
     ): Boolean {
         val expected = pendingPostSubmitCommit ?: return false
-        if (nowMillis() > pendingPostSubmitDeadlineMillis) {
-            clearPendingPostSubmitCommit()
-            return false
-        }
         val shouldIgnore =
-            newValue.composition == null &&
-                textFieldValue.text.isEmpty() &&
-                lastCommittedText.isEmpty() &&
-                newCommitted == expected
+            if (nowMillis() > pendingPostSubmitDeadlineMillis) {
+                false
+            } else {
+                newValue.composition == null &&
+                    textFieldValue.text.isEmpty() &&
+                    lastCommittedText.isEmpty() &&
+                    newCommitted == expected
+            }
         clearPendingPostSubmitCommit()
         return shouldIgnore
     }

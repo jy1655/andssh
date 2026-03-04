@@ -15,14 +15,13 @@ class CrashHandler(
         thread: Thread,
         throwable: Throwable,
     ) {
-        try {
+        runCatching {
             writeReport(thread, throwable)
             trimReports()
-        } catch (reportError: Throwable) {
+        }.onFailure { reportError ->
             android.util.Log.e("CrashHandler", "Failed to write crash report", reportError)
-        } finally {
-            defaultHandler?.uncaughtException(thread, throwable)
         }
+        defaultHandler?.uncaughtException(thread, throwable)
     }
 
     private fun writeReport(

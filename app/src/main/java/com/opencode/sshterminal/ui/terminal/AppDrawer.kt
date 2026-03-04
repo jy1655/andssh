@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import com.opencode.sshterminal.R
 import kotlinx.coroutines.launch
 
+@Suppress("LongParameterList", "LongMethod")
 @Composable
 fun AppDrawer(
     drawerState: DrawerState,

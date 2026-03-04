@@ -9,22 +9,18 @@ import android.provider.OpenableColumns
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.foundation.clickable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -130,9 +126,10 @@ internal fun ConnectionPrivateKeyField(
         placeholder = { Text(stringResource(R.string.connection_private_key_placeholder)) },
         readOnly = true,
         singleLine = true,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onPickPrivateKey),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onPickPrivateKey),
     )
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -219,36 +216,6 @@ internal fun ConnectionPrivateKeyField(
             }
         }
     }
-}
-
-@Composable
-private fun GeneratePrivateKeyDialog(
-    onDismiss: () -> Unit,
-    onSelectAlgorithm: (SshKeyAlgorithm) -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.connection_generate_private_key_title)) },
-        text = {
-            Column {
-                TextButton(onClick = { onSelectAlgorithm(SshKeyAlgorithm.ED25519) }) {
-                    Text(stringResource(R.string.connection_generate_private_key_ed25519))
-                }
-                TextButton(onClick = { onSelectAlgorithm(SshKeyAlgorithm.RSA) }) {
-                    Text(stringResource(R.string.connection_generate_private_key_rsa))
-                }
-                TextButton(onClick = { onSelectAlgorithm(SshKeyAlgorithm.ECDSA) }) {
-                    Text(stringResource(R.string.connection_generate_private_key_ecdsa))
-                }
-            }
-        },
-        confirmButton = {},
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(R.string.common_cancel))
-            }
-        },
-    )
 }
 
 private fun importPrivateKeyToInternalStorage(

@@ -10,9 +10,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -57,8 +57,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -207,6 +207,7 @@ private fun rememberBackupExportAction(
 }
 
 @Composable
+@Suppress("LongMethod")
 private fun rememberBackupImportAction(
     viewModel: SettingsViewModel,
     onShowPasswordDialog: () -> Unit,
@@ -966,6 +967,7 @@ private fun moveShortcutLayoutItem(
 }
 
 @Composable
+@Suppress("LongMethod")
 private fun AdvancedSection(
     state: SettingsUiState,
     viewModel: SettingsViewModel,
@@ -1039,6 +1041,7 @@ private fun AdvancedSection(
 }
 
 @Composable
+@Suppress("LongMethod")
 private fun BackupPasswordExportDialog(
     show: Boolean,
     onDismiss: () -> Unit,
@@ -1251,7 +1254,7 @@ private fun SettingsDivider() {
     Divider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.2f))
 }
 
-@Suppress("LongParameterList")
+@Suppress("LongParameterList", "LongMethod")
 @Composable
 private fun <T> SelectionDialog(
     show: Boolean,

@@ -13,9 +13,7 @@ import java.io.File
 import java.security.PublicKey
 import java.util.Base64
 
-internal fun SSHClient.authenticate(
-    request: ConnectRequest,
-) {
+internal fun SSHClient.authenticate(request: ConnectRequest) {
     when {
         !request.password.isNullOrEmpty() ->
             withZeroizedChars(request.password) { passwordChars ->

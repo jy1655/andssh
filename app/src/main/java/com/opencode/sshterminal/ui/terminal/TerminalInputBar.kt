@@ -477,7 +477,7 @@ internal fun dispatchHardwareKeyAction(
 }
 
 @Composable
-@Suppress("LongParameterList")
+@Suppress("LongParameterList", "LongMethod")
 private fun TerminalTextInputRow(
     focusSignal: Int,
     textFieldValue: TextFieldValue,

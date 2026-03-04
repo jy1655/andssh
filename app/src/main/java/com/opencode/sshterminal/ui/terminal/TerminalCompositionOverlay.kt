@@ -24,6 +24,7 @@ import androidx.compose.ui.window.PopupProperties
 import com.opencode.sshterminal.terminal.resolveTerminalComposeFontFamily
 import kotlin.math.roundToInt
 
+@Suppress("LongParameterList")
 @Composable
 internal fun TerminalCompositionOverlay(
     composingText: String,

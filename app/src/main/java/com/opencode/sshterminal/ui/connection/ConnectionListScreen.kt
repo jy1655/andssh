@@ -1,7 +1,5 @@
 package com.opencode.sshterminal.ui.connection
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -61,7 +59,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.opencode.sshterminal.BuildConfig
 import com.opencode.sshterminal.R
 import com.opencode.sshterminal.data.ConnectionIdentity
 import com.opencode.sshterminal.data.ConnectionProfile
@@ -71,10 +68,7 @@ import com.opencode.sshterminal.data.PortForwardType
 import com.opencode.sshterminal.data.ProxyJumpEntry
 import com.opencode.sshterminal.data.parseProxyJumpEntries
 import com.opencode.sshterminal.data.proxyJumpHostPortKey
-import com.opencode.sshterminal.security.SshKeyAlgorithm
-import com.opencode.sshterminal.security.buildSshSkEcdsaAuthorizedKey
 import com.opencode.sshterminal.terminal.TerminalColorSchemePreset
-import java.util.Base64
 import java.util.UUID
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -204,13 +198,6 @@ fun ConnectionListScreen(
         ConnectionBottomSheet(
             initial = editingProfile,
             identities = identities,
-            onEnrollSecurityKey = { application, displayName, onComplete ->
-                viewModel.enrollHardwareSecurityKey(
-                    application = application,
-                    displayName = displayName,
-                    onComplete = onComplete,
-                )
-            },
             onDismiss = { showSheet = false },
             onSave = { profile ->
                 viewModel.save(profile)
@@ -609,7 +596,6 @@ private data class ConnectionDraft(
     val securityKeyApplication: String = DEFAULT_SECURITY_KEY_APPLICATION,
     val securityKeyHandleBase64: String = "",
     val securityKeyPublicKeyBase64: String = "",
-    val securityKeyAuthorizedKey: String = "",
     val proxyJumpIdentityIds: Map<String, String> = emptyMap(),
     val portForwards: List<PortForwardRule> = emptyList(),
 )
@@ -639,7 +625,6 @@ private fun ConnectionProfile?.toDraft(): ConnectionDraft =
         securityKeyApplication = this?.securityKeyApplication ?: DEFAULT_SECURITY_KEY_APPLICATION,
         securityKeyHandleBase64 = this?.securityKeyHandleBase64.orEmpty(),
         securityKeyPublicKeyBase64 = this?.securityKeyPublicKeyBase64.orEmpty(),
-        securityKeyAuthorizedKey = this?.toAuthorizedSecurityKeyEntry().orEmpty(),
         proxyJumpIdentityIds = this?.proxyJumpIdentityIds.orEmpty(),
         portForwards = this?.portForwards.orEmpty(),
     )
@@ -718,24 +703,6 @@ private fun ConnectionDraft.clearSensitiveFields(): ConnectionDraft {
     )
 }
 
-@Suppress("ReturnCount")
-private fun ConnectionProfile.toAuthorizedSecurityKeyEntry(): String {
-    val application = securityKeyApplication?.trim().orEmpty()
-    val publicKeyBase64 = securityKeyPublicKeyBase64?.trim().orEmpty()
-    if (application.isBlank() || publicKeyBase64.isBlank()) return ""
-    val publicKey =
-        runCatching {
-            Base64.getDecoder().decode(publicKeyBase64)
-        }.getOrNull() ?: return ""
-    return runCatching {
-        buildSshSkEcdsaAuthorizedKey(
-            publicKeyUncompressed = publicKey,
-            application = application,
-            comment = name.ifBlank { "$username@$host" },
-        )
-    }.getOrElse { "" }
-}
-
 private fun connectionRouteSummary(profile: ConnectionProfile): String? {
     val routeTags = mutableListOf<String>()
     if (profile.protocol == ConnectionProtocol.MOSH) {
@@ -760,15 +727,9 @@ private fun connectionRouteSummary(profile: ConnectionProfile): String? {
 private fun ConnectionBottomSheet(
     initial: ConnectionProfile?,
     identities: List<ConnectionIdentity>,
-    onEnrollSecurityKey: (
-        application: String,
-        displayName: String,
-        onComplete: (SecurityKeyEnrollmentResult?, String?) -> Unit,
-    ) -> Unit,
     onDismiss: () -> Unit,
     onSave: (ConnectionProfile) -> Unit,
 ) {
-    val context = LocalContext.current
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var draft by remember(initial) { mutableStateOf(initial.toDraft()) }
     var selectedIdentityId by remember(initial) { mutableStateOf(initial?.identityId) }
@@ -788,13 +749,6 @@ private fun ConnectionBottomSheet(
                 draft = draft.copy(certificatePath = importedPath)
             },
         )
-    val securityKeyEnrollEnabled = BuildConfig.ENABLE_SECURITY_KEY_ENROLL
-    val securityKeyEnrollDisabledReason =
-        if (securityKeyEnrollEnabled) {
-            null
-        } else {
-            context.getString(R.string.connection_security_key_enroll_disabled_release)
-        }
 
     ModalBottomSheet(
         onDismissRequest = {
@@ -882,90 +836,10 @@ private fun ConnectionBottomSheet(
                                     draft.portForwards.toMutableList().also { rules ->
                                         rules.removeAt(index)
                                     },
-                            )
+                        )
                     }
                 },
                 onClearPortForwards = { draft = draft.copy(portForwards = emptyList()) },
-                securityKeyEnrollEnabled = securityKeyEnrollEnabled,
-                securityKeyEnrollDisabledReason = securityKeyEnrollDisabledReason,
-                onEnrollSecurityKey = {
-                    val normalizedApplication =
-                        draft.securityKeyApplication
-                            .trim()
-                            .ifBlank { DEFAULT_SECURITY_KEY_APPLICATION }
-                    val displayName =
-                        draft.name.ifBlank {
-                            "${draft.username.ifBlank { "user" }}@${draft.host.ifBlank { "host" }}"
-                        }
-                    onEnrollSecurityKey(
-                        normalizedApplication,
-                        displayName,
-                    ) { enrolled, errorMessage ->
-                        if (enrolled == null) {
-                            val failureText =
-                                errorMessage
-                                    ?.trim()
-                                    ?.takeIf { it.isNotEmpty() }
-                                    ?.let { reason ->
-                                        context.getString(
-                                            R.string.connection_security_key_enroll_failed_reason,
-                                            reason,
-                                        )
-                                    }
-                                    ?: context.getString(R.string.connection_security_key_enroll_failed)
-                            Toast.makeText(
-                                context,
-                                failureText,
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                        } else {
-                            draft =
-                                draft.copy(
-                                    securityKeyApplication = enrolled.application,
-                                    securityKeyHandleBase64 = enrolled.keyHandleBase64,
-                                    securityKeyPublicKeyBase64 = enrolled.publicKeyBase64,
-                                    securityKeyAuthorizedKey = enrolled.authorizedKey,
-                                )
-                            Toast.makeText(
-                                context,
-                                context.getString(R.string.connection_security_key_enroll_success),
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                        }
-                    }
-                },
-                onClearSecurityKey = {
-                    draft =
-                        draft.copy(
-                            securityKeyApplication =
-                                draft.securityKeyApplication.ifBlank {
-                                    DEFAULT_SECURITY_KEY_APPLICATION
-                                },
-                            securityKeyHandleBase64 = "",
-                            securityKeyPublicKeyBase64 = "",
-                            securityKeyAuthorizedKey = "",
-                        )
-                },
-                onCopySecurityKeyAuthorizedKey = {
-                    val authorizedKey = draft.securityKeyAuthorizedKey.trim()
-                    if (authorizedKey.isBlank()) {
-                        Toast.makeText(
-                            context,
-                            context.getString(R.string.connection_security_key_copy_failed),
-                            Toast.LENGTH_SHORT,
-                        ).show()
-                    } else {
-                        val clipboard = context.getSystemService(ClipboardManager::class.java)
-                        if (clipboard != null) {
-                            clipboard.setPrimaryClip(ClipData.newPlainText("ssh-security-key", authorizedKey))
-                            Toast.makeText(
-                                context,
-                                context.getString(R.string.connection_security_key_copy_success),
-                                Toast.LENGTH_SHORT,
-                            ).show()
-                        }
-                    }
-                },
             )
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -1029,11 +903,6 @@ private fun ConnectionFormFields(
     onMovePortForwardRule: (Int, Int) -> Unit,
     onRemovePortForwardRuleAt: (Int) -> Unit,
     onClearPortForwards: () -> Unit,
-    securityKeyEnrollEnabled: Boolean,
-    securityKeyEnrollDisabledReason: String?,
-    onEnrollSecurityKey: () -> Unit,
-    onClearSecurityKey: () -> Unit,
-    onCopySecurityKeyAuthorizedKey: () -> Unit,
 ) {
     if (identities.isNotEmpty()) {
         IdentitySelectorField(
@@ -1227,22 +1096,6 @@ private fun ConnectionFormFields(
         onPickCertificate = onPickCertificate,
         onClearPrivateKey = onClearPrivateKey,
         onClearCertificate = onClearCertificate,
-    )
-    ConnectionSecurityKeyField(
-        application = draft.securityKeyApplication,
-        isConfigured =
-            draft.securityKeyHandleBase64.isNotBlank() &&
-                draft.securityKeyPublicKeyBase64.isNotBlank() &&
-                draft.securityKeyApplication.isNotBlank(),
-        authorizedKey = draft.securityKeyAuthorizedKey,
-        enrollEnabled = securityKeyEnrollEnabled,
-        enrollDisabledReason = securityKeyEnrollDisabledReason,
-        onApplicationChange = { value ->
-            onDraftChange(draft.copy(securityKeyApplication = value))
-        },
-        onEnroll = onEnrollSecurityKey,
-        onClear = onClearSecurityKey,
-        onCopyAuthorizedKey = onCopySecurityKeyAuthorizedKey,
     )
 }
 

@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -245,68 +244,6 @@ internal fun ConnectionPrivateKeyField(
                 Text(stringResource(R.string.connection_share_public_key))
             }
         }
-    }
-}
-
-@Composable
-@Suppress("LongParameterList")
-internal fun ConnectionSecurityKeyField(
-    application: String,
-    isConfigured: Boolean,
-    authorizedKey: String,
-    enrollEnabled: Boolean,
-    enrollDisabledReason: String?,
-    onApplicationChange: (String) -> Unit,
-    onEnroll: () -> Unit,
-    onClear: () -> Unit,
-    onCopyAuthorizedKey: () -> Unit,
-) {
-    OutlinedTextField(
-        value = application,
-        onValueChange = onApplicationChange,
-        label = { Text(stringResource(R.string.connection_label_security_key_application)) },
-        placeholder = { Text(stringResource(R.string.connection_security_key_application_placeholder)) },
-        singleLine = true,
-        modifier = Modifier.fillMaxWidth(),
-    )
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        OutlinedButton(
-            onClick = onEnroll,
-            enabled = enrollEnabled,
-        ) {
-            Text(stringResource(R.string.connection_enroll_security_key))
-        }
-        if (isConfigured) {
-            TextButton(onClick = onClear) {
-                Text(stringResource(R.string.connection_clear_security_key))
-            }
-        }
-        if (authorizedKey.isNotBlank()) {
-            OutlinedButton(onClick = onCopyAuthorizedKey) {
-                Text(stringResource(R.string.connection_copy_security_key))
-            }
-        }
-    }
-    Text(
-        text =
-            if (isConfigured) {
-                stringResource(R.string.connection_security_key_configured)
-            } else {
-                stringResource(R.string.connection_security_key_not_configured)
-            },
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-    )
-    if (!enrollEnabled && !enrollDisabledReason.isNullOrBlank()) {
-        Text(
-            text = enrollDisabledReason,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.error,
-        )
     }
 }
 

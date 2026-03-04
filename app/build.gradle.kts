@@ -96,18 +96,6 @@ val playCredentialsPath =
         .orElse(providers.environmentVariable("ANDROID_PUBLISHER_CREDENTIALS"))
         .orNull
         ?.takeIf { it.isNotBlank() }
-val enableSecurityKeyEnroll =
-    providers
-        .gradleProperty("andssh.enableSecurityKeyEnroll")
-        .orNull
-        ?.toBooleanStrictOrNull()
-        ?: false
-val enableFido2Poc =
-    providers
-        .gradleProperty("andssh.enableFido2Poc")
-        .orNull
-        ?.toBooleanStrictOrNull()
-        ?: false
 val hasReleaseSigningConfig =
     listOf(
         releaseStoreFile,
@@ -128,8 +116,6 @@ android {
         versionName = ciVersionName ?: gitVersionName ?: "0.2.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("boolean", "ENABLE_SECURITY_KEY_ENROLL", enableSecurityKeyEnroll.toString())
-        buildConfigField("boolean", "ENABLE_FIDO2_POC", enableFido2Poc.toString())
     }
 
     signingConfigs {

@@ -15,6 +15,7 @@ import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -43,7 +44,12 @@ internal fun TerminalDirectInput(
                 .alpha(0f)
                 .focusRequester(focusRequester)
                 .onPreviewKeyEvent(onHardwareKeyEvent),
-        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+        keyboardOptions =
+            KeyboardOptions(
+                imeAction = ImeAction.Send,
+                keyboardType = KeyboardType.Text,
+                autoCorrect = false,
+            ),
         keyboardActions =
             KeyboardActions(
                 onSend = { controller.submitInput() },

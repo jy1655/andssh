@@ -107,6 +107,62 @@ class TerminalInputControllerTest {
     }
 
     @Test
+    fun `submitInput ignores immediate duplicate commit after composition flush`() {
+        val sent = mutableListOf<ByteArray>()
+        var now = 1_000L
+        val controller =
+            TerminalInputController(
+                onSendBytes = { payload -> sent.add(payload) },
+                onSubmitCommand = {},
+                nowMillis = { now },
+            )
+        controller.directModeEnabled = true
+
+        controller.onTextFieldValueChange(
+            TextFieldValue(text = "\uAC00", composition = TextRange(0, 1)),
+        )
+        sent.clear()
+
+        controller.submitInput()
+
+        assertEquals(2, sent.size)
+        assertTrue(sent[0].contentEquals("\uAC00".toByteArray(Charsets.UTF_8)))
+        assertTrue(sent[1].contentEquals(byteArrayOf('\r'.code.toByte())))
+
+        sent.clear()
+        now += 50
+        controller.onTextFieldValueChange(TextFieldValue("\uAC00"))
+
+        assertTrue(sent.isEmpty())
+    }
+
+    @Test
+    fun `submitInput duplicate-commit guard expires quickly`() {
+        val sent = mutableListOf<ByteArray>()
+        var now = 1_000L
+        val controller =
+            TerminalInputController(
+                onSendBytes = { payload -> sent.add(payload) },
+                onSubmitCommand = {},
+                nowMillis = { now },
+            )
+        controller.directModeEnabled = true
+
+        controller.onTextFieldValueChange(
+            TextFieldValue(text = "\uAC00", composition = TextRange(0, 1)),
+        )
+        sent.clear()
+        controller.submitInput()
+        sent.clear()
+
+        now += 500
+        controller.onTextFieldValueChange(TextFieldValue("\uAC00"))
+
+        assertEquals(1, sent.size)
+        assertTrue(sent.single().contentEquals("\uAC00".toByteArray(Charsets.UTF_8)))
+    }
+
+    @Test
     fun `direct mode submitInput records command`() {
         val sent = mutableListOf<ByteArray>()
         var submittedCommand: String? = null

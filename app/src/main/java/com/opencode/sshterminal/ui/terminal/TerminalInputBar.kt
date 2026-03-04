@@ -46,6 +46,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -505,7 +506,12 @@ private fun TerminalTextInputRow(
                 ),
             singleLine = true,
             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
-            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+            keyboardOptions =
+                KeyboardOptions(
+                    imeAction = ImeAction.Send,
+                    keyboardType = KeyboardType.Text,
+                    autoCorrect = false,
+                ),
             keyboardActions =
                 KeyboardActions(
                     onSend = { onSubmit() },

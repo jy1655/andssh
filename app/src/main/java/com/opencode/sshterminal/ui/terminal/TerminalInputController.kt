@@ -52,6 +52,7 @@ internal fun rememberTerminalInputController(
 internal class TerminalInputController(
     private val onSendBytes: (ByteArray) -> Unit,
     private val onSubmitCommand: (String) -> Unit,
+    private val nowMillis: () -> Long = { System.currentTimeMillis() },
 ) {
     var textFieldValue by mutableStateOf(TextFieldValue())
         private set
@@ -73,6 +74,8 @@ internal class TerminalInputController(
         }
 
     private var lastCommittedText: String = ""
+    private var pendingPostSubmitCommit: String? = null
+    private var pendingPostSubmitDeadlineMillis: Long = 0L
 
     fun toggleCtrl() {
         ctrlArmed = !ctrlArmed
@@ -121,6 +124,9 @@ internal class TerminalInputController(
 
     fun onTextFieldValueChange(newValue: TextFieldValue) {
         val newCommitted = newValue.committedText()
+        if (shouldIgnorePostSubmitCommit(newValue, newCommitted)) {
+            return
+        }
         if (newCommitted != lastCommittedText) {
             lastCommittedText =
                 syncCommittedText(
@@ -138,7 +144,13 @@ internal class TerminalInputController(
     }
 
     fun submitInput() {
-        flushComposing()
+        val flushedComposingText = flushComposing()
+        if (flushedComposingText.isNotEmpty()) {
+            pendingPostSubmitCommit = flushedComposingText
+            pendingPostSubmitDeadlineMillis = nowMillis() + POST_SUBMIT_COMMIT_IGNORE_WINDOW_MS
+        } else {
+            clearPendingPostSubmitCommit()
+        }
         val submittedCommand = textFieldValue.text.trimEnd('\r', '\n')
         if (submittedCommand.isNotBlank()) {
             onSubmitCommand(submittedCommand)
@@ -155,12 +167,13 @@ internal class TerminalInputController(
         }
     }
 
-    private fun flushComposing() {
-        val composition = textFieldValue.composition ?: return
+    private fun flushComposing(): String {
+        val composition = textFieldValue.composition ?: return ""
         val composingText = textFieldValue.text.substring(composition.start, composition.end)
         if (composingText.isNotEmpty()) {
             sendTypedText(composingText)
         }
+        return composingText
     }
 
     private fun clearInput() {
@@ -171,6 +184,33 @@ internal class TerminalInputController(
     private fun resetModifiers() {
         ctrlArmed = false
         altArmed = false
+    }
+
+    private fun clearPendingPostSubmitCommit() {
+        pendingPostSubmitCommit = null
+        pendingPostSubmitDeadlineMillis = 0L
+    }
+
+    private fun shouldIgnorePostSubmitCommit(
+        newValue: TextFieldValue,
+        newCommitted: String,
+    ): Boolean {
+        val expected = pendingPostSubmitCommit ?: return false
+        if (nowMillis() > pendingPostSubmitDeadlineMillis) {
+            clearPendingPostSubmitCommit()
+            return false
+        }
+        val shouldIgnore =
+            newValue.composition == null &&
+                textFieldValue.text.isEmpty() &&
+                lastCommittedText.isEmpty() &&
+                newCommitted == expected
+        clearPendingPostSubmitCommit()
+        return shouldIgnore
+    }
+
+    companion object {
+        private const val POST_SUBMIT_COMMIT_IGNORE_WINDOW_MS = 300L
     }
 }
 

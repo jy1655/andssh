@@ -84,6 +84,40 @@ class TerminalInputControllerTest {
     }
 
     @Test
+    fun `composing overlay text is hidden for non-hangul composition`() {
+        val controller =
+            TerminalInputController(
+                onSendBytes = {},
+                onSubmitCommand = {},
+            )
+        controller.directModeEnabled = true
+
+        controller.onTextFieldValueChange(
+            TextFieldValue(text = "hello", composition = TextRange(0, 5)),
+        )
+
+        assertTrue(controller.isComposing)
+        assertEquals("", controller.composingText)
+    }
+
+    @Test
+    fun `composing overlay text is hidden for multi-character composition`() {
+        val controller =
+            TerminalInputController(
+                onSendBytes = {},
+                onSubmitCommand = {},
+            )
+        controller.directModeEnabled = true
+
+        controller.onTextFieldValueChange(
+            TextFieldValue(text = "\uAC00\uB098\uB2E4", composition = TextRange(0, 3)),
+        )
+
+        assertTrue(controller.isComposing)
+        assertEquals("", controller.composingText)
+    }
+
+    @Test
     fun `direct mode keeps text after composition commit`() {
         val sent = mutableListOf<ByteArray>()
         val controller =

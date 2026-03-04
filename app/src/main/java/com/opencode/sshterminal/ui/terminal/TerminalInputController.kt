@@ -71,7 +71,12 @@ internal class TerminalInputController(
     val composingText: String
         get() {
             val range = textFieldValue.composition ?: return ""
-            return textFieldValue.text.substring(range.start, range.end)
+            val composition = textFieldValue.text.safeSubstring(range) ?: return ""
+            val codePointCount = composition.codePointCount(0, composition.length)
+            if (composition.isBlank() || codePointCount != 1 || !composition.containsHangul()) {
+                return ""
+            }
+            return composition
         }
 
     private var lastCommittedText: String = ""
@@ -240,6 +245,22 @@ private fun syncCommittedText(
 private fun TextFieldValue.committedText(): String {
     val composition = composition ?: return text
     return text.removeRange(composition.start, composition.end)
+}
+
+private fun String.safeSubstring(range: androidx.compose.ui.text.TextRange): String? {
+    if (range.start < 0 || range.end > length || range.start >= range.end) return null
+    return substring(range.start, range.end)
+}
+
+private fun String.containsHangul(): Boolean {
+    return any { char ->
+        val code = char.code
+        code in 0xAC00..0xD7A3 || // Hangul syllables
+            code in 0x1100..0x11FF || // Hangul Jamo
+            code in 0x3130..0x318F || // Hangul Compatibility Jamo
+            code in 0xA960..0xA97F || // Hangul Jamo Extended-A
+            code in 0xD7B0..0xD7FF // Hangul Jamo Extended-B
+    }
 }
 
 private fun buildPayload(

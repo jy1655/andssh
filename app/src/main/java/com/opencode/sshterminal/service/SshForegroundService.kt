@@ -3,6 +3,7 @@ package com.opencode.sshterminal.service
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.app.Service
 import android.content.Context
 import android.content.Intent
@@ -12,6 +13,7 @@ import android.os.IBinder
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import com.opencode.sshterminal.R
+import com.opencode.sshterminal.app.MainActivity
 
 class SshForegroundService : Service() {
     private var wakeLock: PowerManager.WakeLock? = null
@@ -69,16 +71,27 @@ class SshForegroundService : Service() {
     }
 
     private fun buildNotification(channelId: String): Notification {
+        val contentIntent =
+            PendingIntent.getActivity(
+                this,
+                REQUEST_CODE_OPEN_MAIN,
+                Intent(this, MainActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                },
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
         return NotificationCompat.Builder(this, channelId)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(getString(R.string.fgs_notification_title))
             .setContentText(getString(R.string.fgs_notification_body))
+            .setContentIntent(contentIntent)
             .setOngoing(true)
             .build()
     }
 
     companion object {
         private const val NOTIFICATION_ID = 2001
+        private const val REQUEST_CODE_OPEN_MAIN = 2002
         private const val WAKELOCK_TIMEOUT_MS = 4 * 60 * 60 * 1000L // 4 hours
     }
 }

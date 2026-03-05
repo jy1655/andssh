@@ -15,6 +15,7 @@ data class ConnectionProfile(
     val privateKeyPath: String? = null,
     val certificatePath: String? = null,
     val privateKeyPassphrase: String? = null,
+    val requiresPrivateKeyRelink: Boolean = false,
     val forwardAgent: Boolean = false,
     val identityId: String? = null,
     val proxyJump: String? = null,

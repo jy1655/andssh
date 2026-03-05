@@ -70,6 +70,7 @@ import com.opencode.sshterminal.BuildConfig
 import com.opencode.sshterminal.R
 import com.opencode.sshterminal.data.BackupPasswordRequiredException
 import com.opencode.sshterminal.data.BackupV1IncompatibleException
+import com.opencode.sshterminal.data.ConnectionBackupImportSummary
 import com.opencode.sshterminal.data.DEFAULT_TERMINAL_SHORTCUT_LAYOUT_ITEMS
 import com.opencode.sshterminal.data.SettingsRepository
 import com.opencode.sshterminal.data.TerminalShortcutLayoutItem
@@ -217,16 +218,26 @@ private fun rememberBackupImportAction(
     val scope = rememberCoroutineScope()
     var pendingBackupJson by remember { mutableStateOf<String?>(null) }
 
-    val showImportSuccess: (Int, Int) -> Unit = { profileCount, identityCount ->
+    val showImportSuccess: (ConnectionBackupImportSummary) -> Unit = { summary ->
         Toast.makeText(
             context,
             context.getString(
                 R.string.settings_backup_import_success,
-                profileCount,
-                identityCount,
+                summary.profileCount,
+                summary.identityCount,
             ),
             Toast.LENGTH_SHORT,
         ).show()
+        if (summary.privateKeyRelinkRequiredProfileCount > 0) {
+            Toast.makeText(
+                context,
+                context.getString(
+                    R.string.settings_backup_import_relink_notice,
+                    summary.privateKeyRelinkRequiredProfileCount,
+                ),
+                Toast.LENGTH_LONG,
+            ).show()
+        }
     }
     val showImportFailed: (Throwable) -> Unit = { error ->
         Toast.makeText(
@@ -256,7 +267,7 @@ private fun rememberBackupImportAction(
                     runCatching {
                         viewModel.importBackup(json = backupJson, password = null)
                     }.onSuccess { summary ->
-                        showImportSuccess(summary.profileCount, summary.identityCount)
+                        showImportSuccess(summary)
                     }.onFailure { error ->
                         when (error) {
                             is BackupPasswordRequiredException -> {
@@ -288,7 +299,7 @@ private fun rememberBackupImportAction(
                         runCatching {
                             viewModel.importBackup(json = backupJson, password = password)
                         }.onSuccess { summary ->
-                            showImportSuccess(summary.profileCount, summary.identityCount)
+                            showImportSuccess(summary)
                         }.onFailure { error ->
                             when (error) {
                                 is BackupV1IncompatibleException -> onShowV1IncompatibleDialog()

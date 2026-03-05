@@ -227,7 +227,9 @@ class TerminalViewModel
         ): TabId? {
             val profile = connectionRepository.get(connectionId) ?: return null
             val identity = profile.identityId?.let { identityId -> connectionRepository.getIdentity(identityId) }
-            val proxyJumpCredentials = resolveProxyJumpCredentials(profile)
+            val proxyJumpResolution = resolveProxyJumpCredentials(profile)
+            if (profile.requiresPrivateKeyRelink || identity?.requiresPrivateKeyRelink == true) return null
+            if (proxyJumpResolution.requiresPrivateKeyRelink) return null
             if (touchLastUsed) {
                 connectionRepository.touchLastUsed(profile.id)
             }
@@ -242,7 +244,7 @@ class TerminalViewModel
                             rows = DEFAULT_TERMINAL_ROWS,
                             keepaliveIntervalSeconds = sshKeepaliveIntervalSeconds.value,
                             identity = identity,
-                            proxyJumpCredentials = proxyJumpCredentials,
+                            proxyJumpCredentials = proxyJumpResolution.credentials,
                         ).copy(compressionEnabled = sshCompressionEnabled.value),
                 )
             val startupCommand =
@@ -257,18 +259,27 @@ class TerminalViewModel
             return tabId
         }
 
-        private suspend fun resolveProxyJumpCredentials(profile: ConnectionProfile): Map<String, JumpCredential> {
-            return profile.proxyJumpIdentityIds.mapNotNull { (hostPortKey, identityId) ->
-                val identity = connectionRepository.getIdentity(identityId) ?: return@mapNotNull null
-                hostPortKey to
-                    JumpCredential(
-                        username = identity.username,
-                        password = identity.password,
-                        privateKeyPath = identity.privateKeyPath,
-                        certificatePath = identity.certificatePath,
-                        privateKeyPassphrase = identity.privateKeyPassphrase,
-                    )
-            }.toMap()
+        private suspend fun resolveProxyJumpCredentials(profile: ConnectionProfile): ProxyJumpResolution {
+            var requiresPrivateKeyRelink = false
+            val credentials =
+                profile.proxyJumpIdentityIds.mapNotNull { (hostPortKey, identityId) ->
+                    val identity = connectionRepository.getIdentity(identityId) ?: return@mapNotNull null
+                    if (identity.requiresPrivateKeyRelink) {
+                        requiresPrivateKeyRelink = true
+                    }
+                    hostPortKey to
+                        JumpCredential(
+                            username = identity.username,
+                            password = identity.password,
+                            privateKeyPath = identity.privateKeyPath,
+                            certificatePath = identity.certificatePath,
+                            privateKeyPassphrase = identity.privateKeyPassphrase,
+                        )
+                }.toMap()
+            return ProxyJumpResolution(
+                credentials = credentials,
+                requiresPrivateKeyRelink = requiresPrivateKeyRelink,
+            )
         }
 
         private fun scheduleStartupCommand(
@@ -468,6 +479,11 @@ class TerminalViewModel
         private data class WorkspacePersistState(
             val connectionIds: List<String>,
             val activeTabIndex: Int,
+        )
+
+        private data class ProxyJumpResolution(
+            val credentials: Map<String, JumpCredential>,
+            val requiresPrivateKeyRelink: Boolean,
         )
 
         companion object {

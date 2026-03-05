@@ -81,6 +81,7 @@ fun ConnectionListScreen(
     var editingProfile by remember { mutableStateOf<ConnectionProfile?>(null) }
     var showSheet by remember { mutableStateOf(false) }
     var deleteTarget by remember { mutableStateOf<ConnectionProfile?>(null) }
+    var privateKeyRelinkTarget by remember { mutableStateOf<ConnectionProfile?>(null) }
     var showQuickConnectDialog by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     var selectedGroupFilter by remember { mutableStateOf<String?>(null) }
@@ -140,7 +141,13 @@ fun ConnectionListScreen(
             onSelectGroupFilter = { selectedGroupFilter = it },
             sortOption = sortOption,
             onSelectSortOption = { sortOption = it },
-            onConnect = onConnect,
+            onConnect = { profile ->
+                if (profile.requiresPrivateKeyRelink) {
+                    privateKeyRelinkTarget = profile
+                } else {
+                    onConnect(profile.id)
+                }
+            },
             onEdit = { profile ->
                 editingProfile = profile
                 showSheet = true
@@ -168,6 +175,15 @@ fun ConnectionListScreen(
         onDelete = { target ->
             viewModel.delete(target.id)
             deleteTarget = null
+        },
+    )
+    ConnectionPrivateKeyRelinkDialog(
+        target = privateKeyRelinkTarget,
+        onDismiss = { privateKeyRelinkTarget = null },
+        onOpenEditor = { target ->
+            privateKeyRelinkTarget = null
+            editingProfile = target
+            showSheet = true
         },
     )
 
@@ -202,7 +218,7 @@ private fun ConnectionListContent(
     onSelectGroupFilter: (String?) -> Unit,
     sortOption: ConnectionSortOption,
     onSelectSortOption: (ConnectionSortOption) -> Unit,
-    onConnect: (connectionId: String) -> Unit,
+    onConnect: (ConnectionProfile) -> Unit,
     onEdit: (ConnectionProfile) -> Unit,
     onDelete: (ConnectionProfile) -> Unit,
     modifier: Modifier = Modifier,
@@ -281,7 +297,7 @@ private fun ConnectionListContent(
                         }
                         ConnectionCard(
                             profile = profile,
-                            onClick = { onConnect(profile.id) },
+                            onClick = { onConnect(profile) },
                             onEdit = { onEdit(profile) },
                             onDelete = { onDelete(profile) },
                         )
@@ -450,6 +466,30 @@ private fun ConnectionDeleteDialog(
 }
 
 @Composable
+private fun ConnectionPrivateKeyRelinkDialog(
+    target: ConnectionProfile?,
+    onDismiss: () -> Unit,
+    onOpenEditor: (ConnectionProfile) -> Unit,
+) {
+    if (target == null) return
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.connection_relink_private_key_title)) },
+        text = { Text(stringResource(R.string.connection_relink_private_key_message)) },
+        confirmButton = {
+            TextButton(onClick = { onOpenEditor(target) }) {
+                Text(stringResource(R.string.connection_relink_private_key_action))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.common_cancel))
+            }
+        },
+    )
+}
+
+@Composable
 private fun ConnectionCard(
     profile: ConnectionProfile,
     onClick: () -> Unit,
@@ -503,6 +543,13 @@ private fun ConnectionCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                if (profile.requiresPrivateKeyRelink) {
+                    Text(
+                        text = stringResource(R.string.connection_relink_private_key_badge),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
                 connectionRouteSummary(profile)?.let { summary ->
                     Text(
                         summary,
@@ -549,6 +596,7 @@ private data class ConnectionDraft(
     val privateKeyPath: String = "",
     val certificatePath: String = "",
     val privateKeyPassphrase: String = "",
+    val requiresPrivateKeyRelink: Boolean = false,
     val proxyJumpIdentityIds: Map<String, String> = emptyMap(),
     val portForwards: List<PortForwardRule> = emptyList(),
 )
@@ -573,6 +621,7 @@ private fun ConnectionProfile?.toDraft(): ConnectionDraft =
         privateKeyPath = this?.privateKeyPath.orEmpty(),
         certificatePath = this?.certificatePath.orEmpty(),
         privateKeyPassphrase = this?.privateKeyPassphrase.orEmpty(),
+        requiresPrivateKeyRelink = this?.requiresPrivateKeyRelink ?: false,
         proxyJumpIdentityIds = this?.proxyJumpIdentityIds.orEmpty(),
         portForwards = this?.portForwards.orEmpty(),
     )
@@ -593,6 +642,14 @@ private fun ConnectionDraft.toProfileOrNull(
     val parsedTags = parseConnectionTagsInput(tagsInput)
     val parsedPortKnockSequence = parsePortKnockSequenceInput(portKnockSequenceInput)
     val parsedPortKnockDelayMillis = portKnockDelayMillis.toIntOrNull()?.coerceIn(50, 5_000) ?: 250
+    val hasPrivateKeyPath = privateKeyPath.isNotBlank()
+    val hasPassword = password.isNotBlank()
+    val relinkRequired =
+        when {
+            hasPrivateKeyPath -> false
+            hasPassword -> false
+            else -> requiresPrivateKeyRelink
+        }
     return ConnectionProfile(
         id = initial?.id ?: UUID.randomUUID().toString(),
         name = name.ifBlank { "$username@$host" },
@@ -612,7 +669,8 @@ private fun ConnectionDraft.toProfileOrNull(
         password = password.ifBlank { null },
         privateKeyPath = privateKeyPath.ifBlank { null },
         certificatePath = certificatePath.ifBlank { null }?.takeIf { privateKeyPath.isNotBlank() },
-        privateKeyPassphrase = privateKeyPassphrase.ifBlank { null },
+        privateKeyPassphrase = if (relinkRequired) null else privateKeyPassphrase.ifBlank { null },
+        requiresPrivateKeyRelink = relinkRequired,
         identityId = selectedIdentityId,
         proxyJumpIdentityIds = filteredProxyJumpIdentityIds,
         portForwards = portForwards,
@@ -664,7 +722,7 @@ private fun ConnectionBottomSheet(
     val privateKeyPicker =
         rememberConnectionPrivateKeyPicker(
             onImported = { importedPath ->
-                draft = draft.copy(privateKeyPath = importedPath)
+                draft = draft.copy(privateKeyPath = importedPath, requiresPrivateKeyRelink = false)
             },
         )
     val certificatePicker =
@@ -721,20 +779,26 @@ private fun ConnectionBottomSheet(
                                 privateKeyPath = identity.privateKeyPath.orEmpty(),
                                 certificatePath = identity.certificatePath.orEmpty(),
                                 privateKeyPassphrase = identity.privateKeyPassphrase.orEmpty(),
+                                requiresPrivateKeyRelink = identity.requiresPrivateKeyRelink,
                             )
                     }
                 },
                 onDraftChange = { newDraft ->
-                    draft = newDraft
                     if (newDraft.host != draft.host) hostError = false
                     if (newDraft.username != draft.username) usernameError = false
+                    draft = newDraft
                 },
                 onHostChange = { hostError = false },
                 onUsernameChange = { usernameError = false },
                 onPickPrivateKey = privateKeyPicker,
                 onPickCertificate = certificatePicker,
                 onClearPrivateKey = {
-                    draft = draft.copy(privateKeyPath = "", certificatePath = "", privateKeyPassphrase = "")
+                    draft = draft.copy(
+                        privateKeyPath = "",
+                        certificatePath = "",
+                        privateKeyPassphrase = "",
+                        requiresPrivateKeyRelink = false,
+                    )
                 },
                 onClearCertificate = { draft = draft.copy(certificatePath = "") },
                 onAddPortForwardRule = { rule ->

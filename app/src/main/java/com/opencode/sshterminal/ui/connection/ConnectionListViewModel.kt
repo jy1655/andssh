@@ -55,6 +55,7 @@ class ConnectionListViewModel
                         privateKeyPath = profile.privateKeyPath,
                         certificatePath = profile.certificatePath,
                         privateKeyPassphrase = profile.privateKeyPassphrase,
+                        requiresPrivateKeyRelink = profile.requiresPrivateKeyRelink,
                     )
                 repository.save(
                     profile.copy(
@@ -64,6 +65,7 @@ class ConnectionListViewModel
                         privateKeyPath = identity.privateKeyPath,
                         certificatePath = identity.certificatePath,
                         privateKeyPassphrase = identity.privateKeyPassphrase,
+                        requiresPrivateKeyRelink = resolvePrivateKeyRelink(profile, identity),
                     ),
                 )
             }
@@ -85,6 +87,7 @@ class ConnectionListViewModel
                         privateKeyPath = null,
                         certificatePath = null,
                         privateKeyPassphrase = null,
+                        requiresPrivateKeyRelink = false,
                     )
                 val profile =
                     ConnectionProfile(
@@ -98,6 +101,7 @@ class ConnectionListViewModel
                         privateKeyPath = identity.privateKeyPath,
                         certificatePath = identity.certificatePath,
                         privateKeyPassphrase = identity.privateKeyPassphrase,
+                        requiresPrivateKeyRelink = false,
                         identityId = identity.id,
                         lastUsedEpochMillis = System.currentTimeMillis(),
                     )
@@ -108,6 +112,15 @@ class ConnectionListViewModel
 
         fun delete(id: String) {
             viewModelScope.launch { repository.delete(id) }
+        }
+
+        private fun resolvePrivateKeyRelink(
+            profile: ConnectionProfile,
+            identity: ConnectionIdentity,
+        ): Boolean {
+            if (!identity.privateKeyPath.isNullOrBlank()) return false
+            if (!identity.password.isNullOrBlank()) return false
+            return profile.requiresPrivateKeyRelink || identity.requiresPrivateKeyRelink
         }
 
         companion object {

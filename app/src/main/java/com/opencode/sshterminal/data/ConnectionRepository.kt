@@ -88,12 +88,17 @@ class ConnectionRepository
             privateKeyPath: String?,
             certificatePath: String?,
             privateKeyPassphrase: String?,
+            requiresPrivateKeyRelink: Boolean = false,
         ): ConnectionIdentity {
             val normalizedName = displayName.ifBlank { "$username credentials" }
             val normalizedPassword = password.normalizedOptional()
             val normalizedPrivateKeyPath = privateKeyPath.normalizedOptional()
-            val normalizedCertificatePath = certificatePath.normalizedOptional()
+            val normalizedCertificatePath =
+                certificatePath
+                    .normalizedOptional()
+                    ?.takeIf { normalizedPrivateKeyPath != null }
             val normalizedPrivateKeyPassphrase = privateKeyPassphrase.normalizedOptional()
+            val normalizedRequiresPrivateKeyRelink = requiresPrivateKeyRelink && normalizedPrivateKeyPath == null
             val now = System.currentTimeMillis()
 
             existingIdentityId?.let { identityId ->
@@ -107,6 +112,7 @@ class ConnectionRepository
                             privateKeyPath = normalizedPrivateKeyPath,
                             certificatePath = normalizedCertificatePath,
                             privateKeyPassphrase = normalizedPrivateKeyPassphrase,
+                            requiresPrivateKeyRelink = normalizedRequiresPrivateKeyRelink,
                             lastUsedEpochMillis = now,
                         )
                     saveIdentity(updated)
@@ -120,7 +126,8 @@ class ConnectionRepository
                         identity.password == normalizedPassword &&
                         identity.privateKeyPath == normalizedPrivateKeyPath &&
                         identity.certificatePath == normalizedCertificatePath &&
-                        identity.privateKeyPassphrase == normalizedPrivateKeyPassphrase
+                        identity.privateKeyPassphrase == normalizedPrivateKeyPassphrase &&
+                        identity.requiresPrivateKeyRelink == normalizedRequiresPrivateKeyRelink
                 }
             if (existingByAuth != null) {
                 val touched = existingByAuth.copy(lastUsedEpochMillis = now)
@@ -136,6 +143,7 @@ class ConnectionRepository
                     privateKeyPath = normalizedPrivateKeyPath,
                     certificatePath = normalizedCertificatePath,
                     privateKeyPassphrase = normalizedPrivateKeyPassphrase,
+                    requiresPrivateKeyRelink = normalizedRequiresPrivateKeyRelink,
                     lastUsedEpochMillis = now,
                 )
             saveIdentity(created)

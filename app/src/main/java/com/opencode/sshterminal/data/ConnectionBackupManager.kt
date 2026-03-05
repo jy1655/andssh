@@ -18,6 +18,7 @@ class BackupDecryptionException : IllegalArgumentException("Incorrect password o
 data class ConnectionBackupImportSummary(
     val profileCount: Int,
     val identityCount: Int,
+    val privateKeyRelinkRequiredProfileCount: Int = 0,
 )
 
 @Singleton
@@ -73,13 +74,15 @@ class ConnectionBackupManager
             }
             val backupPassword = password ?: throw BackupPasswordRequiredException()
             val payload = decryptAndParsePayload(envelope.ciphertext, backupPassword)
+            val sanitizedImport = sanitizeImportedPayload(payload)
             connectionRepository.replaceAll(
-                profiles = payload.profiles,
-                identities = payload.identities,
+                profiles = sanitizedImport.profiles,
+                identities = sanitizedImport.identities,
             )
             return ConnectionBackupImportSummary(
-                profileCount = payload.profiles.size,
-                identityCount = payload.identities.size,
+                profileCount = sanitizedImport.profiles.size,
+                identityCount = sanitizedImport.identities.size,
+                privateKeyRelinkRequiredProfileCount = sanitizedImport.privateKeyRelinkRequiredProfileCount,
             )
         }
 
@@ -115,6 +118,77 @@ class ConnectionBackupManager
             }
         }
 
+        private fun sanitizeImportedPayload(payload: ConnectionBackupPayload): SanitizedImportPayload {
+            val identitiesById =
+                payload.identities.associateBy(ConnectionIdentity::id) { identity ->
+                    sanitizeImportedIdentity(identity)
+                }
+            val identities = identitiesById.values.toList()
+            val relinkIdentityIds =
+                identitiesById
+                    .filterValues { identity -> identity.requiresPrivateKeyRelink }
+                    .keys
+            val profiles =
+                payload.profiles.map { profile ->
+                    sanitizeImportedProfile(
+                        profile = profile,
+                        relinkIdentityIds = relinkIdentityIds,
+                    )
+                }
+            return SanitizedImportPayload(
+                profiles = profiles,
+                identities = identities,
+                privateKeyRelinkRequiredProfileCount = profiles.count { profile -> profile.requiresPrivateKeyRelink },
+            )
+        }
+
+        private fun sanitizeImportedIdentity(identity: ConnectionIdentity): ConnectionIdentity {
+            val privateKeyPath = identity.privateKeyPath.normalizedOptional()
+            val hadPrivateKeyPath = privateKeyPath != null
+            val relinkRequired = identity.requiresPrivateKeyRelink || hadPrivateKeyPath
+            return identity.copy(
+                privateKeyPath = if (relinkRequired) null else privateKeyPath,
+                certificatePath =
+                    if (relinkRequired) {
+                        null
+                    } else {
+                        identity.certificatePath.normalizedOptional()?.takeIf { privateKeyPath != null }
+                    },
+                privateKeyPassphrase = if (relinkRequired) null else identity.privateKeyPassphrase.normalizedOptional(),
+                requiresPrivateKeyRelink = relinkRequired,
+            )
+        }
+
+        private fun sanitizeImportedProfile(
+            profile: ConnectionProfile,
+            relinkIdentityIds: Set<String>,
+        ): ConnectionProfile {
+            val privateKeyPath = profile.privateKeyPath.normalizedOptional()
+            val profileHasPrivateKeyPath = privateKeyPath != null
+            val identityRequiresRelink = profile.identityId?.let(relinkIdentityIds::contains) == true
+            val proxyJumpRequiresRelink = profile.proxyJumpIdentityIds.values.any(relinkIdentityIds::contains)
+            val relinkRequired =
+                profile.requiresPrivateKeyRelink ||
+                    profileHasPrivateKeyPath ||
+                    identityRequiresRelink ||
+                    proxyJumpRequiresRelink
+            return profile.copy(
+                privateKeyPath = if (relinkRequired) null else privateKeyPath,
+                certificatePath =
+                    if (relinkRequired) {
+                        null
+                    } else {
+                        profile.certificatePath.normalizedOptional()?.takeIf { privateKeyPath != null }
+                    },
+                privateKeyPassphrase = if (relinkRequired) null else profile.privateKeyPassphrase.normalizedOptional(),
+                requiresPrivateKeyRelink = relinkRequired,
+            )
+        }
+
+        private fun String?.normalizedOptional(): String? {
+            return this?.trim()?.takeIf { value -> value.isNotEmpty() }
+        }
+
         companion object {
             internal const val BACKUP_FORMAT_V1 = "andssh_backup_v1"
             internal const val BACKUP_FORMAT_V2 = "andssh_backup_v2"
@@ -141,4 +215,10 @@ private data class ConnectionBackupPayload(
     val exportedAtEpochMillis: Long,
     val profiles: List<ConnectionProfile>,
     val identities: List<ConnectionIdentity>,
+)
+
+private data class SanitizedImportPayload(
+    val profiles: List<ConnectionProfile>,
+    val identities: List<ConnectionIdentity>,
+    val privateKeyRelinkRequiredProfileCount: Int,
 )

@@ -36,6 +36,10 @@
     <string name="connection_sort_recent">최근 사용순</string>
     <string name="connection_delete_title">연결 삭제</string>
     <string name="connection_delete_message">"%1$s"을(를) 삭제할까요? 되돌릴 수 없습니다.</string>
+    <string name="connection_relink_private_key_badge">재설정 필요</string>
+    <string name="connection_relink_private_key_title">개인 키를 다시 선택해 주세요</string>
+    <string name="connection_relink_private_key_message">보안 및 Android 파일 접근 정책으로 인해 백업에 포함된 개인 키 파일 경로는 그대로 사용할 수 없습니다. 계속하려면 개인 키를 다시 지정해 주세요.</string>
+    <string name="connection_relink_private_key_action">개인 키 선택</string>
     <string name="connection_edit">편집</string>
     <string name="connection_delete">삭제</string>
     <string name="connection_sheet_edit_title">연결 편집</string>
@@ -282,6 +286,7 @@
     <string name="settings_backup_export_success">백업을 내보냈습니다</string>
     <string name="settings_backup_export_failed">백업 내보내기에 실패했습니다: %1$s</string>
     <string name="settings_backup_import_success">연결 %1$d개, 자격증명 %2$d개를 가져왔습니다</string>
+    <string name="settings_backup_import_relink_notice">연결 %1$d개는 개인 키를 다시 지정해야 합니다</string>
     <string name="settings_backup_import_failed">백업 가져오기에 실패했습니다: %1$s</string>
     <string name="settings_backup_password_title">백업 비밀번호 설정</string>
     <string name="settings_backup_password_hint">이 비밀번호는 어떤 기기에서든 백업을 복원할 때 필요합니다.</string>

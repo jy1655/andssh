@@ -23,6 +23,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Terminal
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -55,6 +57,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.opencode.sshterminal.R
@@ -892,6 +895,7 @@ private fun ConnectionFormFields(
     onRemovePortForwardRuleAt: (Int) -> Unit,
     onClearPortForwards: () -> Unit,
 ) {
+    var showPassword by remember { mutableStateOf(false) }
     if (identities.isNotEmpty()) {
         IdentitySelectorField(
             identities = identities,
@@ -959,7 +963,31 @@ private fun ConnectionFormFields(
         onValueChange = { onDraftChange(draft.copy(password = it)) },
         label = { Text(stringResource(R.string.connection_label_password_optional)) },
         singleLine = true,
-        visualTransformation = PasswordVisualTransformation(),
+        visualTransformation =
+            if (showPassword) {
+                VisualTransformation.None
+            } else {
+                PasswordVisualTransformation()
+            },
+        trailingIcon = {
+            IconButton(onClick = { showPassword = !showPassword }) {
+                val contentDescription =
+                    if (showPassword) {
+                        stringResource(R.string.common_hide_password)
+                    } else {
+                        stringResource(R.string.common_show_password)
+                    }
+                Icon(
+                    imageVector =
+                        if (showPassword) {
+                            Icons.Filled.VisibilityOff
+                        } else {
+                            Icons.Filled.Visibility
+                        },
+                    contentDescription = contentDescription,
+                )
+            }
+        },
         modifier = Modifier.fillMaxWidth(),
     )
     ConnectionPrivateKeyField(

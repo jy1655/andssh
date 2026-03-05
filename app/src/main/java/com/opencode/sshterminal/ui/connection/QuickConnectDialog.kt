@@ -5,10 +5,15 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -21,6 +26,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.opencode.sshterminal.R
 import com.opencode.sshterminal.data.ConnectionProtocol
@@ -35,6 +42,7 @@ fun QuickConnectDialog(
     var port by remember { mutableStateOf("22") }
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var showPassword by remember { mutableStateOf(false) }
     var protocol by remember { mutableStateOf(ConnectionProtocol.SSH) }
     var protocolMenuExpanded by remember { mutableStateOf(false) }
     val canConnect = host.isNotBlank() && username.isNotBlank()
@@ -73,6 +81,31 @@ fun QuickConnectDialog(
                     onValueChange = { password = it },
                     label = { Text(stringResource(R.string.connection_label_password_optional)) },
                     singleLine = true,
+                    visualTransformation =
+                        if (showPassword) {
+                            VisualTransformation.None
+                        } else {
+                            PasswordVisualTransformation()
+                        },
+                    trailingIcon = {
+                        IconButton(onClick = { showPassword = !showPassword }) {
+                            val contentDescription =
+                                if (showPassword) {
+                                    stringResource(R.string.common_hide_password)
+                                } else {
+                                    stringResource(R.string.common_show_password)
+                                }
+                            Icon(
+                                imageVector =
+                                    if (showPassword) {
+                                        Icons.Filled.VisibilityOff
+                                    } else {
+                                        Icons.Filled.Visibility
+                                    },
+                                contentDescription = contentDescription,
+                            )
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth(),
                 )
                 Box(modifier = Modifier.fillMaxWidth()) {

@@ -35,17 +35,31 @@ internal enum class TerminalShortcut {
     F12,
 }
 
+internal enum class TerminalTextInputApplyMode(val id: String) {
+    REALTIME("realtime"),
+    ON_SEND("on_send"),
+    ;
+
+    companion object {
+        fun fromId(id: String): TerminalTextInputApplyMode {
+            return entries.firstOrNull { mode -> mode.id == id } ?: REALTIME
+        }
+    }
+}
+
 @Composable
 internal fun rememberTerminalInputController(
     onSendBytes: (ByteArray) -> Unit,
     onSubmitCommand: (String) -> Unit,
     directModeEnabled: Boolean = false,
+    textInputApplyMode: TerminalTextInputApplyMode = TerminalTextInputApplyMode.REALTIME,
 ): TerminalInputController {
     val controller =
         remember(onSendBytes, onSubmitCommand) {
             TerminalInputController(onSendBytes, onSubmitCommand)
         }
     controller.directModeEnabled = directModeEnabled
+    controller.textInputApplyMode = textInputApplyMode
     return controller
 }
 
@@ -65,6 +79,8 @@ internal class TerminalInputController(
         private set
 
     var directModeEnabled by mutableStateOf(false)
+
+    var textInputApplyMode by mutableStateOf(TerminalTextInputApplyMode.REALTIME)
 
     val isComposing: Boolean get() = textFieldValue.composition != null
 
@@ -133,6 +149,11 @@ internal class TerminalInputController(
         if (shouldIgnorePostSubmitCommit(newValue, newCommitted)) {
             return
         }
+        if (textInputApplyMode == TerminalTextInputApplyMode.ON_SEND) {
+            lastCommittedText = newCommitted
+            textFieldValue = newValue
+            return
+        }
         if (newCommitted != lastCommittedText) {
             lastCommittedText =
                 syncCommittedText(
@@ -150,19 +171,50 @@ internal class TerminalInputController(
     }
 
     fun submitInput() {
-        val flushedComposingText = flushComposing()
+        val submittedCommand = textFieldValue.text.trimEnd('\r', '\n')
+        if (submittedCommand.isNotBlank()) {
+            onSubmitCommand(submittedCommand)
+        }
+        val flushedComposingText =
+            if (textInputApplyMode == TerminalTextInputApplyMode.ON_SEND) {
+                sendBufferedInputForOnSendMode()
+            } else {
+                flushComposing()
+            }
         if (flushedComposingText.isNotEmpty()) {
             pendingPostSubmitCommit = flushedComposingText
             pendingPostSubmitDeadlineMillis = nowMillis() + POST_SUBMIT_COMMIT_IGNORE_WINDOW_MS
         } else {
             clearPendingPostSubmitCommit()
         }
-        val submittedCommand = textFieldValue.text.trimEnd('\r', '\n')
-        if (submittedCommand.isNotBlank()) {
-            onSubmitCommand(submittedCommand)
-        }
         onSendBytes(byteArrayOf('\r'.code.toByte()))
         clearInput()
+    }
+
+    private fun sendBufferedInputForOnSendMode(): String {
+        val composition = textFieldValue.composition
+        if (composition == null) {
+            val plain = textFieldValue.text
+            if (plain.isNotEmpty()) {
+                sendTypedText(plain)
+            }
+            return ""
+        }
+
+        val text = textFieldValue.text
+        val prefix = text.substring(0, composition.start)
+        val composing = text.substring(composition.start, composition.end)
+        val suffix = text.substring(composition.end)
+        if (prefix.isNotEmpty()) {
+            sendTypedText(prefix)
+        }
+        if (composing.isNotEmpty()) {
+            sendTypedText(composing)
+        }
+        if (suffix.isNotEmpty()) {
+            sendTypedText(suffix)
+        }
+        return composing
     }
 
     private fun sendTypedText(text: String) {

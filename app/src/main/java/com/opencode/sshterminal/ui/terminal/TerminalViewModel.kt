@@ -176,6 +176,14 @@ class TerminalViewModel
                     SettingsRepository.DEFAULT_TERMINAL_INPUT_MODE,
                 )
 
+        val terminalTextInputApplyMode: StateFlow<String> =
+            settingsRepository.terminalTextInputApplyMode
+                .stateIn(
+                    viewModelScope,
+                    SharingStarted.WhileSubscribed(STATE_FLOW_TIMEOUT_MS),
+                    SettingsRepository.DEFAULT_TERMINAL_TEXT_INPUT_APPLY_MODE,
+                )
+
         init {
             viewModelScope.launch {
                 sessionManager.hasAnyConnected.collect { anyConnected ->

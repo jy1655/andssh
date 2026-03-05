@@ -89,6 +89,13 @@ class SettingsRepository
                 )
             }
 
+        val terminalTextInputApplyMode: Flow<String> =
+            dataStore.data.map { prefs ->
+                normalizeTerminalTextInputApplyMode(
+                    prefs[TERMINAL_TEXT_INPUT_APPLY_MODE_KEY] ?: DEFAULT_TERMINAL_TEXT_INPUT_APPLY_MODE,
+                )
+            }
+
         suspend fun setLanguageTag(tag: String) {
             dataStore.edit { prefs -> prefs[LANGUAGE_TAG_KEY] = tag }
         }
@@ -157,12 +164,27 @@ class SettingsRepository
             dataStore.edit { prefs -> prefs[TERMINAL_INPUT_MODE_KEY] = normalizeTerminalInputMode(mode) }
         }
 
+        suspend fun setTerminalTextInputApplyMode(mode: String) {
+            dataStore.edit { prefs ->
+                prefs[TERMINAL_TEXT_INPUT_APPLY_MODE_KEY] = normalizeTerminalTextInputApplyMode(mode)
+            }
+        }
+
         private fun normalizeTerminalInputMode(mode: String): String {
             return when (mode) {
                 TERMINAL_INPUT_MODE_DIRECT,
                 TERMINAL_INPUT_MODE_TEXT_BAR,
                 -> mode
                 else -> DEFAULT_TERMINAL_INPUT_MODE
+            }
+        }
+
+        private fun normalizeTerminalTextInputApplyMode(mode: String): String {
+            return when (mode) {
+                TERMINAL_TEXT_INPUT_APPLY_MODE_REALTIME,
+                TERMINAL_TEXT_INPUT_APPLY_MODE_ON_SEND,
+                -> mode
+                else -> DEFAULT_TERMINAL_TEXT_INPUT_APPLY_MODE
             }
         }
 
@@ -182,6 +204,8 @@ class SettingsRepository
             private val TERMINAL_HARDWARE_KEY_BINDINGS_KEY =
                 stringPreferencesKey("pref_terminal_hardware_key_bindings")
             private val TERMINAL_INPUT_MODE_KEY = stringPreferencesKey("pref_terminal_input_mode")
+            private val TERMINAL_TEXT_INPUT_APPLY_MODE_KEY =
+                stringPreferencesKey("pref_terminal_text_input_apply_mode")
             const val DEFAULT_LANGUAGE_TAG = ""
             const val DEFAULT_THEME_PRESET = "green"
             const val DEFAULT_CLIPBOARD_TIMEOUT = 30
@@ -198,5 +222,8 @@ class SettingsRepository
             const val TERMINAL_INPUT_MODE_DIRECT = "direct"
             const val TERMINAL_INPUT_MODE_TEXT_BAR = "text_bar"
             const val DEFAULT_TERMINAL_INPUT_MODE = TERMINAL_INPUT_MODE_DIRECT
+            const val TERMINAL_TEXT_INPUT_APPLY_MODE_REALTIME = "realtime"
+            const val TERMINAL_TEXT_INPUT_APPLY_MODE_ON_SEND = "on_send"
+            const val DEFAULT_TERMINAL_TEXT_INPUT_APPLY_MODE = TERMINAL_TEXT_INPUT_APPLY_MODE_REALTIME
         }
     }

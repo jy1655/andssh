@@ -49,6 +49,70 @@ class TerminalInputControllerTest {
     }
 
     @Test
+    fun `on send mode buffers text changes until submit`() {
+        val sent = mutableListOf<ByteArray>()
+        var submittedCommand: String? = null
+        val controller =
+            TerminalInputController(
+                onSendBytes = { payload -> sent.add(payload) },
+                onSubmitCommand = { command -> submittedCommand = command },
+            )
+        controller.textInputApplyMode = TerminalTextInputApplyMode.ON_SEND
+
+        controller.onTextFieldValueChange(TextFieldValue("ab"))
+        controller.onTextFieldValueChange(TextFieldValue("a"))
+
+        assertTrue(sent.isEmpty())
+
+        controller.submitInput()
+
+        assertEquals("a", submittedCommand)
+        assertEquals(2, sent.size)
+        assertTrue(sent[0].contentEquals("a".toByteArray(Charsets.UTF_8)))
+        assertTrue(sent[1].contentEquals(byteArrayOf('\r'.code.toByte())))
+    }
+
+    @Test
+    fun `on send mode does not emit backspace while editing`() {
+        val sent = mutableListOf<ByteArray>()
+        val controller =
+            TerminalInputController(
+                onSendBytes = { payload -> sent.add(payload) },
+                onSubmitCommand = {},
+            )
+        controller.textInputApplyMode = TerminalTextInputApplyMode.ON_SEND
+
+        controller.onTextFieldValueChange(TextFieldValue("ab"))
+        controller.onTextFieldValueChange(TextFieldValue("a"))
+
+        assertTrue(sent.isEmpty())
+    }
+
+    @Test
+    fun `on send mode submits composed text in original order`() {
+        val sent = mutableListOf<ByteArray>()
+        val controller =
+            TerminalInputController(
+                onSendBytes = { payload -> sent.add(payload) },
+                onSubmitCommand = {},
+            )
+        controller.textInputApplyMode = TerminalTextInputApplyMode.ON_SEND
+
+        controller.onTextFieldValueChange(
+            TextFieldValue(
+                text = "a\uAC00b",
+                composition = TextRange(1, 2),
+            ),
+        )
+
+        controller.submitInput()
+
+        val submittedPayload = sent.dropLast(1).joinToString(separator = "") { bytes -> String(bytes, Charsets.UTF_8) }
+        assertEquals("a\uAC00b", submittedPayload)
+        assertTrue(sent.last().contentEquals(byteArrayOf('\r'.code.toByte())))
+    }
+
+    @Test
     fun `direct mode keeps committed text for subsequent edits`() {
         val sent = mutableListOf<ByteArray>()
         val controller =

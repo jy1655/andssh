@@ -97,6 +97,7 @@ fun TerminalScreen(
     val terminalShortcutLayout by viewModel.terminalShortcutLayout.collectAsState()
     val terminalHardwareKeyBindings by viewModel.terminalHardwareKeyBindings.collectAsState()
     val terminalInputMode by viewModel.terminalInputMode.collectAsState()
+    val terminalTextInputApplyMode by viewModel.terminalTextInputApplyMode.collectAsState()
     var hadTabs by remember { mutableStateOf(false) }
     var showConnectionPicker by remember { mutableStateOf(false) }
     var showSnippetSheet by remember { mutableStateOf(false) }
@@ -170,6 +171,7 @@ fun TerminalScreen(
             terminalShortcutLayout = terminalShortcutLayout,
             terminalHardwareKeyBindings = terminalHardwareKeyBindings,
             terminalInputMode = terminalInputMode,
+            terminalTextInputApplyMode = terminalTextInputApplyMode,
             isSplitViewEnabled = isSplitViewEnabled,
             secondaryTabId = secondaryTabId,
             canSplitView = tabs.size > 1,
@@ -291,6 +293,7 @@ private data class TerminalScreenModel(
     val terminalShortcutLayout: String,
     val terminalHardwareKeyBindings: String,
     val terminalInputMode: String,
+    val terminalTextInputApplyMode: String,
     val isSplitViewEnabled: Boolean,
     val secondaryTabId: TabId?,
     val canSplitView: Boolean,
@@ -412,11 +415,18 @@ private fun TerminalMainColumn(
 
     val inputMode = TerminalInputMode.fromId(model.terminalInputMode)
     val directModeEnabled = inputMode == TerminalInputMode.DIRECT
+    val textInputApplyMode =
+        if (directModeEnabled) {
+            TerminalTextInputApplyMode.REALTIME
+        } else {
+            TerminalTextInputApplyMode.fromId(model.terminalTextInputApplyMode)
+        }
     val controller =
         rememberTerminalInputController(
             onSendBytes = callbacks.onSendBytes,
             onSubmitCommand = callbacks.onSubmitCommand,
             directModeEnabled = directModeEnabled,
+            textInputApplyMode = textInputApplyMode,
         )
 
     val context = LocalContext.current

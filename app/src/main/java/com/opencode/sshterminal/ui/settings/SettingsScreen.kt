@@ -565,6 +565,7 @@ private fun TerminalSection(
     var showFontSizeDialog by remember { mutableStateOf(false) }
     var showCursorDialog by remember { mutableStateOf(false) }
     var showInputModeDialog by remember { mutableStateOf(false) }
+    var showTextInputApplyModeDialog by remember { mutableStateOf(false) }
     var showClipboardDialog by remember { mutableStateOf(false) }
     var showKeepaliveDialog by remember { mutableStateOf(false) }
     var showShortcutLayoutDialog by remember { mutableStateOf(false) }
@@ -595,6 +596,16 @@ private fun TerminalSection(
     val inputModeLabel =
         inputModeOptions.firstOrNull { it.first == state.terminalInputMode }?.second
             ?: inputModeOptions.last().second
+    val textInputApplyModeOptions =
+        listOf(
+            SettingsRepository.TERMINAL_TEXT_INPUT_APPLY_MODE_REALTIME to
+                stringResource(R.string.settings_terminal_text_input_apply_realtime),
+            SettingsRepository.TERMINAL_TEXT_INPUT_APPLY_MODE_ON_SEND to
+                stringResource(R.string.settings_terminal_text_input_apply_on_send),
+        )
+    val textInputApplyModeLabel =
+        textInputApplyModeOptions.firstOrNull { it.first == state.terminalTextInputApplyMode }?.second
+            ?: textInputApplyModeOptions.first().second
     val clipboardOptions =
         listOf(
             15 to stringResource(R.string.settings_timeout_15s),
@@ -659,6 +670,12 @@ private fun TerminalSection(
                 title = stringResource(R.string.settings_terminal_text_input_default),
                 value = inputModeLabel,
                 onClick = { showInputModeDialog = true },
+            )
+            SettingsDivider()
+            SettingsValueRow(
+                title = stringResource(R.string.settings_terminal_text_input_apply_mode),
+                value = textInputApplyModeLabel,
+                onClick = { showTextInputApplyModeDialog = true },
             )
             SettingsDivider()
             SettingsValueRow(
@@ -733,6 +750,14 @@ private fun TerminalSection(
         selected = state.terminalInputMode,
         onSelected = viewModel::setTerminalInputMode,
         onDismiss = { showInputModeDialog = false },
+    )
+    SelectionDialog(
+        show = showTextInputApplyModeDialog,
+        title = stringResource(R.string.settings_terminal_text_input_apply_mode),
+        options = textInputApplyModeOptions,
+        selected = state.terminalTextInputApplyMode,
+        onSelected = viewModel::setTerminalTextInputApplyMode,
+        onDismiss = { showTextInputApplyModeDialog = false },
     )
     SelectionDialog(
         show = showClipboardDialog,

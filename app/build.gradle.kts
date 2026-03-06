@@ -140,7 +140,7 @@ android {
             isShrinkResources = true
             ndk {
                 // Include stripped native symbols in AAB/APK for Play Console native crash deobfuscation.
-                debugSymbolLevel = "SYMBOL_TABLE"
+                debugSymbolLevel = "FULL"
             }
             if (hasReleaseSigningConfig) {
                 signingConfig = signingConfigs.getByName("release")
